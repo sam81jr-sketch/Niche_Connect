@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>CampusChat - Login</title>
+
+    <link
+        rel="stylesheet"
+        href="/css/login.css"
+    >
+
+</head>
+
+<body>
+
+    <div class="container">
+
+        <div class="card">
+
+            <h1>CampusChat</h1>
+
+            <p class="subtitle">
+                Connect with your campus
+            </p>
+
+
+            <!-- LOGIN -->
+
+            <div id="loginBox">
+
+                <h2>Login</h2>
+
+                <input
+                    id="loginUsername"
+                    type="text"
+                    placeholder="Username"
+                    autocomplete="username"
+                >
+
+                <input
+                    id="loginPassword"
+                    type="password"
+                    placeholder="Password"
+                    autocomplete="current-password"
+                >
+
+                <button onclick="login()">
+                    Login
+                </button>
+
+                <p id="loginMessage"></p>
+
+                <p>
+                    Don't have an account?
+                    <button
+                        class="linkButton"
+                        onclick="showRegister()"
+                    >
+                        Register
+                    </button>
+                </p>
+
+            </div>
+
+
+            <!-- REGISTER -->
+
+            <div
+                id="registerBox"
+                style="display:none;"
+            >
+
+                <h2>Create Account</h2>
+
+                <input
+                    id="registerUsername"
+                    type="text"
+                    placeholder="Username"
+                    autocomplete="username"
+                >
+
+                <input
+                    id="registerPassword"
+                    type="password"
+                    placeholder="Password"
+                    autocomplete="new-password"
+                >
+
+                <input
+                    id="confirmPassword"
+                    type="password"
+                    placeholder="Confirm password"
+                    autocomplete="new-password"
+                >
+
+                <button onclick="register()">
+                    Create Account
+                </button>
+
+                <p id="registerMessage"></p>
+
+                <p>
+                    Already have an account?
+                    <button
+                        class="linkButton"
+                        onclick="showLogin()"
+                    >
+                        Login
+                    </button>
+                </p>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <script src="/js/login.js"></script>
+
+</body>
+
+</html>

@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CampusChat</title>
+
+    <style>
+        body {
+            font-family: Arial;
+            margin: 0;
+            background: #f2f2f2;
+        }
+
+        header {
+            background: #222;
+            color: white;
+            padding: 15px;
+            text-align: center;
+        }
+
+        #login {
+            padding: 30px;
+            text-align: center;
+        }
+
+        #chat {
+            display: none;
+        }
+
+        #messages {
+            height: 70vh;
+            overflow-y: auto;
+            padding: 15px;
+        }
+
+        .message {
+            background: white;
+            padding: 10px;
+            margin: 8px;
+            border-radius: 10px;
+        }
+
+        #inputArea {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            display: flex;
+        }
+
+        #message {
+            flex: 1;
+            padding: 15px;
+            border: none;
+        }
+
+        button {
+            padding: 15px;
+            border: none;
+            background: #222;
+            color: white;
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <h2>CampusChat</h2>
+    <div>Online: <span id="userCount">0</span></div>
+</header>
+
+<div id="login">
+    <h2>Login</h2>
+
+    <input
+        id="username"
+        placeholder="Enter your name"
+    >
+
+    <button onclick="login()">
+        Join Chat
+    </button>
+</div>
+
+<div id="chat">
+
+    <div id="messages"></div>
+
+    <div id="inputArea">
+        <input
+            id="message"
+            placeholder="Type a message..."
+        >
+
+        <button onclick="sendMessage()">
+            Send
+        </button>
+    </div>
+
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+
+<script>
+
+const socket = io();
+
+function login() {
+
+    const username =
+        document.getElementById("username").value.trim();
+
+    if (!username) return;
+
+    socket.emit("login", username);
+}
+
+socket.on("loginSuccess", () => {
+
+    document.getElementById("login").style.display = "none";
+
+    document.getElementById("chat").style.display = "block";
+});
+
+function sendMessage() {
+
+    const input =
+        document.getElementById("message");
+
+    const message = input.value.trim();
+
+    if (!message) return;
+
+    socket.emit("chatMessage", message);
+
+    input.value = "";
+}
+
+socket.on("chatMessage", (data) => {
+
+    const messages =
+        document.getElementById("messages");
+
+    const div =
+        document.createElement("div");
+
+    div.className = "message";
+
+    div.innerHTML =
+        `<b>${escapeHtml(data.username)}</b>
+         <small>${data.time}</small>
+         <br>
+         ${escapeHtml(data.message)}`;
+
+    messages.appendChild(div);
+
+    messages.scrollTop = messages.scrollHeight;
+});
+
+socket.on("userCount", (count) => {
+
+    document.getElementById("userCount").textContent = count;
+
+});
+
+function escapeHtml(text) {
+
+    const div = document.createElement("div");
+
+    div.textContent = text;
+
+    return div.innerHTML;
+}
+
+</script>
+
+</body>
+</html>

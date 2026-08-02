@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>NICHE Connect — Admin Dashboard</title>
+
+    <link
+        rel="stylesheet"
+        href="/admin/admin.css"
+    >
+
+</head>
+
+<body>
+
+<div class="dashboard">
+
+    <!-- ================================= -->
+    <!-- HEADER -->
+    <!-- ================================= -->
+
+    <header class="topbar">
+
+        <div>
+
+            <h1>
+                🎓 NICHE Connect
+            </h1>
+
+            <p>
+                Administrator Dashboard
+            </p>
+
+        </div>
+
+        <button
+            id="logoutButton"
+            class="logout"
+        >
+            Logout
+        </button>
+
+    </header>
+
+
+    <!-- ================================= -->
+    <!-- STATISTICS -->
+    <!-- ================================= -->
+
+    <section class="stats">
+
+        <div class="stat-card">
+
+            <h3>
+                Users
+            </h3>
+
+            <strong id="totalUsers">
+                0
+            </strong>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <h3>
+                Messages
+            </h3>
+
+            <strong id="totalMessages">
+                0
+            </strong>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <h3>
+                Private Rooms
+            </h3>
+
+            <strong id="totalRooms">
+                0
+            </strong>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <h3>
+                Active Chats
+            </h3>
+
+            <strong id="activeRooms">
+                0
+            </strong>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <h3>
+                Reports
+            </h3>
+
+            <strong id="totalReports">
+                0
+            </strong>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <h3>
+                Banned
+            </h3>
+
+            <strong id="bannedUsers">
+                0
+            </strong>
+
+        </div>
+
+    </section>
+
+
+    <!-- ================================= -->
+    <!-- PRIVATE CHAT ROOMS -->
+    <!-- ================================= -->
+
+    <section class="panel">
+
+        <div class="panel-header">
+
+            <h2>
+                💬 Private Chat Monitoring
+            </h2>
+
+            <button
+                onclick="loadRooms()"
+            >
+                Refresh
+            </button>
+
+        </div>
+
+
+        <div
+            id="roomsContainer"
+            class="table-container"
+        >
+
+            Loading rooms...
+
+        </div>
+
+    </section>
+
+
+    <!-- ================================= -->
+    <!-- USERS -->
+    <!-- ================================= -->
+
+    <section class="panel">
+
+        <div class="panel-header">
+
+            <h2>
+                👥 Users
+            </h2>
+
+            <button
+                onclick="loadUsers()"
+            >
+                Refresh
+            </button>
+
+        </div>
+
+
+        <div
+            id="usersContainer"
+            class="table-container"
+        >
+
+            Loading users...
+
+        </div>
+
+    </section>
+
+
+    <!-- ================================= -->
+    <!-- REPORTS -->
+    <!-- ================================= -->
+
+    <section class="panel">
+
+        <div class="panel-header">
+
+            <h2>
+                🚨 Reports
+            </h2>
+
+            <button
+                onclick="loadReports()"
+            >
+                Refresh
+            </button>
+
+        </div>
+
+
+        <div
+            id="reportsContainer"
+            class="table-container"
+        >
+
+            Loading reports...
+
+        </div>
+
+    </section>
+
+</div>
+
+
+<!-- ================================= -->
+<!-- CHAT MONITOR MODAL -->
+<!-- ================================= -->
+
+<div
+    id="chatModal"
+    class="modal"
+>
+
+    <div class="modal-content">
+
+        <div class="modal-header">
+
+            <div>
+
+                <h2 id="modalTitle">
+                    Private Chat
+                </h2>
+
+                <p id="modalStatus">
+                    Admin-only monitoring
+                </p>
+
+            </div>
+
+
+            <button
+                onclick="closeChat()"
+                class="closeButton"
+            >
+                ×
+            </button>
+
+        </div>
+
+
+        <div
+            id="chatMessages"
+            class="chat-messages"
+        >
+
+            Loading messages...
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<script src="/admin/dashboard.js"></script>
+
+</body>
+
+</html>

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>CampusChat - Finding User</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: Arial, sans-serif;
+            background: #111827;
+            color: white;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 420px;
+            text-align: center;
+            padding: 30px;
+            background: #1f2937;
+            border-radius: 20px;
+        }
+
+        h1 {
+            margin-bottom: 10px;
+        }
+
+        #status {
+            color: #cbd5e1;
+            margin: 20px 0;
+        }
+
+        .loader {
+            width: 45px;
+            height: 45px;
+            margin: 25px auto;
+            border: 5px solid #374151;
+            border-top: 5px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        button {
+            width: 100%;
+            padding: 13px;
+            border: none;
+            border-radius: 10px;
+            background: #dc2626;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>CampusChat</h1>
+
+    <div class="loader"></div>
+
+    <p id="status">
+        Connecting...
+    </p>
+
+    <button id="cancelButton">
+        Cancel
+    </button>
+
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/js/waiting.js"></script>
+
+</body>
+
+</html>

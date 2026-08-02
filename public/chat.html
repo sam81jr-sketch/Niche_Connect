@@ -1,0 +1,1120 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0"
+    >
+
+    <title>CampusChat</title>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+
+            font-family:
+                -apple-system,
+                BlinkMacSystemFont,
+                "Segoe UI",
+                Roboto,
+                Arial,
+                sans-serif;
+
+            background: #f5f7fb;
+        }
+
+
+        /* =====================================
+           APP
+        ===================================== */
+
+        #app {
+            width: 100%;
+            height: 100dvh;
+
+            display: flex;
+            flex-direction: column;
+        }
+
+
+        /* =====================================
+           HEADER
+        ===================================== */
+
+        header {
+            height: 72px;
+            flex-shrink: 0;
+
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+
+            padding: 10px 14px;
+
+            background: rgba(255, 255, 255, 0.96);
+
+            border-bottom: 1px solid #e5e7eb;
+
+            box-shadow:
+                0 2px 12px rgba(0, 0, 0, 0.05);
+
+            z-index: 10;
+        }
+
+
+        .userInfo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+
+            min-width: 0;
+        }
+
+
+        .avatar {
+            width: 44px;
+            height: 44px;
+
+            flex-shrink: 0;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            border-radius: 50%;
+
+            background:
+                linear-gradient(
+                    135deg,
+                    #6366f1,
+                    #8b5cf6
+                );
+
+            color: white;
+
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+
+        .userDetails {
+            min-width: 0;
+        }
+
+
+        .appName {
+            margin: 0;
+
+            font-size: 17px;
+            font-weight: 750;
+
+            color: #111827;
+        }
+
+
+        .connectionStatus {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+
+            margin-top: 2px;
+
+            font-size: 12px;
+
+            color: #64748b;
+
+            white-space: nowrap;
+        }
+
+
+        .onlineDot {
+            width: 7px;
+            height: 7px;
+
+            border-radius: 50%;
+
+            background: #22c55e;
+        }
+
+
+        #partnerUsername {
+            max-width: 140px;
+
+            overflow: hidden;
+
+            text-overflow: ellipsis;
+        }
+
+
+        /* =====================================
+           HEADER BUTTONS
+        ===================================== */
+
+        .headerActions {
+            display: flex;
+            align-items: center;
+
+            gap: 7px;
+        }
+
+
+        .iconButton {
+            width: 42px;
+            height: 42px;
+
+            border: none;
+
+            border-radius: 13px;
+
+            background: #f1f5f9;
+
+            color: #334155;
+
+            font-size: 18px;
+
+            cursor: pointer;
+        }
+
+
+        .iconButton:active {
+            transform: scale(0.94);
+        }
+
+
+        .skipButton {
+            background: #eef2ff;
+
+            color: #4f46e5;
+        }
+
+
+        .logoutButton {
+            background: #fef2f2;
+
+            color: #dc2626;
+        }
+
+
+        /* =====================================
+           CURRENT CHAT PARTNER
+        ===================================== */
+
+        #chatPartnerBar {
+
+            height: 58px;
+
+            flex-shrink: 0;
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 10px;
+
+            padding: 8px 15px;
+
+            background: #ffffff;
+
+            border-bottom: 1px solid #e5e7eb;
+
+            box-shadow:
+                0 2px 8px rgba(0, 0, 0, 0.04);
+
+            z-index: 9;
+        }
+
+
+        #partnerAvatar {
+
+            width: 38px;
+            height: 38px;
+
+            flex-shrink: 0;
+
+            display: flex;
+
+            align-items: center;
+            justify-content: center;
+
+            border-radius: 50%;
+
+            background:
+                linear-gradient(
+                    135deg,
+                    #6366f1,
+                    #8b5cf6
+                );
+
+            color: white;
+
+            font-size: 17px;
+        }
+
+
+        #partnerChatInfo {
+
+            min-width: 0;
+
+            display: flex;
+
+            flex-direction: column;
+
+            gap: 1px;
+        }
+
+
+        #partnerChatInfo span {
+
+            font-size: 10px;
+
+            color: #64748b;
+        }
+
+
+        #partnerChatInfo strong {
+
+            max-width: 220px;
+
+            overflow: hidden;
+
+            text-overflow: ellipsis;
+
+            white-space: nowrap;
+
+            font-size: 15px;
+
+            color: #111827;
+        }
+
+
+        #partnerOnlineDot {
+
+            width: 9px;
+            height: 9px;
+
+            margin-left: auto;
+
+            flex-shrink: 0;
+
+            border-radius: 50%;
+
+            background: #22c55e;
+
+            box-shadow:
+                0 0 0 3px #dcfce7;
+        }
+
+
+        /* =====================================
+           CHAT AREA
+        ===================================== */
+
+        #messages {
+
+            flex: 1;
+
+            min-height: 0;
+
+            overflow-y: auto;
+
+            padding: 18px 14px 100px;
+
+            display: flex;
+
+            flex-direction: column;
+
+            gap: 10px;
+
+            scroll-behavior: smooth;
+        }
+
+
+        #messages::-webkit-scrollbar {
+            width: 4px;
+        }
+
+
+        #messages::-webkit-scrollbar-thumb {
+
+            background: #cbd5e1;
+
+            border-radius: 10px;
+        }
+
+
+        /* =====================================
+           MESSAGE
+        ===================================== */
+
+        .message {
+
+            max-width: 82%;
+
+            padding: 10px 13px;
+
+            border-radius: 17px;
+
+            background: white;
+
+            box-shadow:
+                0 2px 7px rgba(0, 0, 0, 0.05);
+
+            align-self: flex-start;
+        }
+
+
+        .message.mine {
+
+            align-self: flex-end;
+
+            background:
+                linear-gradient(
+                    135deg,
+                    #6366f1,
+                    #7c3aed
+                );
+
+            color: white;
+
+            border-bottom-right-radius: 5px;
+        }
+
+
+        .message:not(.mine) {
+
+            border-bottom-left-radius: 5px;
+        }
+
+
+        .name {
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 7px;
+
+            margin-bottom: 3px;
+
+            font-size: 11px;
+
+            font-weight: 700;
+
+            color: #6366f1;
+        }
+
+
+        .mine .name {
+
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+
+        .time {
+
+            font-size: 9px;
+
+            font-weight: 400;
+
+            opacity: 0.7;
+        }
+
+
+        .text {
+
+            word-break: break-word;
+
+            font-size: 15px;
+
+            line-height: 1.45;
+        }
+
+
+        .reportButton {
+
+            margin-top: 7px;
+
+            border: none;
+
+            background: transparent;
+
+            color: #ef4444;
+
+            font-size: 10px;
+
+            cursor: pointer;
+        }
+
+
+        /* =====================================
+           EMPTY STATE
+        ===================================== */
+
+        #emptyState {
+
+            margin: auto;
+
+            text-align: center;
+
+            color: #64748b;
+        }
+
+
+        .emptyIcon {
+
+            width: 64px;
+            height: 64px;
+
+            margin: 0 auto 12px;
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content: center;
+
+            border-radius: 22px;
+
+            background: #eef2ff;
+
+            font-size: 28px;
+        }
+
+
+        #emptyState h3 {
+
+            margin: 0 0 5px;
+
+            color: #334155;
+        }
+
+
+        #emptyState p {
+
+            margin: 0;
+
+            font-size: 13px;
+        }
+
+
+        /* =====================================
+           INPUT AREA
+        ===================================== */
+
+        #inputArea {
+
+            position: fixed;
+
+            left: 0;
+            right: 0;
+            bottom: 0;
+
+            padding:
+                9px
+                10px
+                calc(9px + env(safe-area-inset-bottom));
+
+            display: flex;
+
+            gap: 8px;
+
+            background:
+                rgba(255, 255, 255, 0.96);
+
+            border-top: 1px solid #e5e7eb;
+
+            backdrop-filter: blur(12px);
+
+            z-index: 20;
+        }
+
+
+        #messageInput {
+
+            flex: 1;
+
+            min-width: 0;
+
+            height: 48px;
+
+            padding: 0 16px;
+
+            border: 1px solid #e2e8f0;
+
+            border-radius: 16px;
+
+            outline: none;
+
+            background: #f8fafc;
+
+            color: #111827;
+
+            font-size: 15px;
+        }
+
+
+        #messageInput:focus {
+
+            border-color: #818cf8;
+
+            background: white;
+
+            box-shadow:
+                0 0 0 3px rgba(
+                    99,
+                    102,
+                    241,
+                    0.1
+                );
+        }
+
+
+        #sendButton {
+
+            width: 50px;
+            height: 48px;
+
+            flex-shrink: 0;
+
+            border: none;
+
+            border-radius: 16px;
+
+            background:
+                linear-gradient(
+                    135deg,
+                    #6366f1,
+                    #7c3aed
+                );
+
+            color: white;
+
+            font-size: 19px;
+
+            cursor: pointer;
+        }
+
+
+        #sendButton:active {
+
+            transform: scale(0.94);
+        }
+
+
+        /* =====================================
+           VIDEO CALL BUTTON
+        ===================================== */
+
+        #videoCallButton {
+
+            position: fixed;
+
+            right: 15px;
+
+            bottom: 76px;
+
+            width: 52px;
+            height: 52px;
+
+            border: none;
+
+            border-radius: 50%;
+
+            background:
+                linear-gradient(
+                    135deg,
+                    #22c55e,
+                    #16a34a
+                );
+
+            color: white;
+
+            font-size: 20px;
+
+            box-shadow:
+                0 7px 20px
+                rgba(0, 0, 0, 0.18);
+
+            z-index: 15;
+
+            cursor: pointer;
+        }
+
+
+        /* =====================================
+           VIDEO CALL PANEL
+        ===================================== */
+
+        #callPanel {
+
+            position: fixed;
+
+            inset: 0;
+
+            display: none;
+
+            flex-direction: column;
+
+            background: #0f172a;
+
+            color: white;
+
+            z-index: 100;
+        }
+
+
+        #callHeader {
+
+            height: 65px;
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content: space-between;
+
+            padding: 0 15px;
+
+            background:
+                rgba(15, 23, 42, 0.9);
+        }
+
+
+        #callStatus {
+
+            margin: 0;
+
+            color: #cbd5e1;
+
+            font-size: 13px;
+        }
+
+
+        #videos {
+
+            flex: 1;
+
+            position: relative;
+
+            display: flex;
+
+            justify-content: center;
+
+            align-items: center;
+
+            padding: 12px;
+        }
+
+
+        #remoteVideo {
+
+            width: 100%;
+            height: 100%;
+
+            object-fit: cover;
+
+            background: #020617;
+
+            border-radius: 18px;
+        }
+
+
+        #localVideo {
+
+            position: absolute;
+
+            right: 22px;
+            top: 22px;
+
+            width: 115px;
+            height: 160px;
+
+            object-fit: cover;
+
+            background: #020617;
+
+            border: 2px solid white;
+
+            border-radius: 15px;
+
+            z-index: 2;
+        }
+
+
+        #callControls {
+
+            min-height: 85px;
+
+            display: flex;
+
+            justify-content: center;
+
+            align-items: center;
+
+            gap: 12px;
+
+            padding-bottom:
+                env(safe-area-inset-bottom);
+        }
+
+
+        .callControl {
+
+            width: 52px;
+            height: 52px;
+
+            border: none;
+
+            border-radius: 50%;
+
+            background: #334155;
+
+            color: white;
+
+            font-size: 19px;
+
+            cursor: pointer;
+        }
+
+
+        #hangupButton {
+
+            width: 58px;
+            height: 58px;
+
+            background: #dc2626;
+        }
+
+
+        /* =====================================
+           DESKTOP
+        ===================================== */
+
+        @media (min-width: 700px) {
+
+            #messages {
+
+                width: 700px;
+
+                margin: auto;
+
+                padding-left: 20px;
+
+                padding-right: 20px;
+            }
+
+
+            #inputArea {
+
+                left: 50%;
+
+                transform: translateX(-50%);
+
+                width: 700px;
+            }
+
+
+            #chatPartnerBar {
+
+                width: 700px;
+
+                margin: auto;
+            }
+
+
+            #videoCallButton {
+
+                right:
+                    calc(50% - 325px);
+            }
+
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+
+<div id="app">
+
+
+    <!-- ==================================
+         HEADER
+    ================================== -->
+
+    <header>
+
+        <div class="userInfo">
+
+            <div class="avatar">
+                💬
+            </div>
+
+
+            <div class="userDetails">
+
+                <h2 class="appName">
+                    NICHE🎓 Connect
+                </h2>
+
+
+                <div class="connectionStatus">
+
+                    <span class="onlineDot"></span>
+
+                    <span>
+                        Chatting with
+                    </span>
+
+                    <b id="partnerUsername">
+                        Finding someone...
+                    </b>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="headerActions">
+
+            <button
+                class="iconButton skipButton"
+                id="skipButton"
+                onclick="skipUser()"
+                title="Skip user"
+            >
+                ⏭
+            </button>
+
+
+            <button
+                class="iconButton logoutButton"
+                onclick="logout()"
+                title="Logout"
+            >
+                ⎋
+            </button>
+
+        </div>
+
+    </header>
+
+
+    <!-- ==================================
+         CURRENT CHAT PARTNER
+    ================================== -->
+
+    <div id="chatPartnerBar">
+
+        <div id="partnerAvatar">
+            👤
+        </div>
+
+
+        <div id="partnerChatInfo">
+
+            <span>
+                You're chatting with
+            </span>
+
+            <strong id="topPartnerUsername">
+                Finding someone...
+            </strong>
+
+        </div>
+
+
+        <div id="partnerOnlineDot"></div>
+
+    </div>
+
+
+    <!-- ==================================
+         MESSAGES
+    ================================== -->
+
+    <main id="messages">
+
+        <div id="emptyState">
+
+            <div class="emptyIcon">
+                💬
+            </div>
+
+            <h3 id="emptyTitle">
+                Finding someone...
+            </h3>
+
+            <p id="emptyText">
+                Please wait while we connect you with another student.
+            </p>
+
+        </div>
+
+    </main>
+
+
+    <!-- ==================================
+         MESSAGE INPUT
+    ================================== -->
+
+    <div id="inputArea">
+
+        <input
+            id="messageInput"
+            type="text"
+            placeholder="Type a message..."
+            autocomplete="off"
+            maxlength="1000"
+        >
+
+
+        <button
+            id="sendButton"
+            onclick="sendMessage()"
+            title="Send"
+        >
+            ➤
+        </button>
+
+    </div>
+
+
+    <!-- ==================================
+         VIDEO CALL BUTTON
+    ================================== -->
+
+    <button
+        id="videoCallButton"
+        onclick="startVideoCall()"
+        title="Video call"
+    >
+        📹
+    </button>
+
+
+</div>
+
+
+<!-- ======================================
+     VIDEO CALL PANEL
+====================================== -->
+
+<div id="callPanel">
+
+    <div id="callHeader">
+
+        <div>
+
+            <strong>
+                📹 CampusChat Call
+            </strong>
+
+            <p id="callStatus">
+                Ready
+            </p>
+
+        </div>
+
+    </div>
+
+
+    <div id="videos">
+
+        <video
+            id="remoteVideo"
+            autoplay
+            playsinline
+        ></video>
+
+
+        <video
+            id="localVideo"
+            autoplay
+            muted
+            playsinline
+        ></video>
+
+    </div>
+
+
+    <div id="callControls">
+
+        <button
+            class="callControl"
+            id="muteButton"
+            onclick="toggleMute()"
+            title="Mute"
+        >
+            🎤
+        </button>
+
+
+        <button
+            class="callControl"
+            id="cameraButton"
+            onclick="toggleCamera()"
+            title="Camera"
+        >
+            📷
+        </button>
+
+
+        <button
+            class="callControl"
+            id="hangupButton"
+            onclick="endVideoCall()"
+            title="Hang up"
+        >
+            ☎
+        </button>
+
+    </div>
+
+</div>
+
+
+<!-- ======================================
+     SOCKET.IO
+====================================== -->
+
+<script src="/socket.io/socket.io.js"></script>
+
+
+<!-- ======================================
+     CHAT JS
+====================================== -->
+
+<script src="/js/chat.js"></script>
+
+
+<!-- ======================================
+     VIDEO JS
+====================================== -->
+
+<script src="/js/video.js"></script>
+
+
+</body>
+
+</html>

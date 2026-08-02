@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>CampusChat Video Call</title>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: #111827;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+
+        .container {
+            min-height: 100vh;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        h1 {
+            text-align: center;
+            margin: 10px;
+        }
+
+        .videos {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            align-items: center;
+        }
+
+        video {
+            width: 100%;
+            max-height: 70vh;
+            background: #000;
+            border-radius: 14px;
+            object-fit: cover;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            padding: 15px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            border: none;
+            border-radius: 10px;
+            padding: 13px 18px;
+            font-size: 15px;
+            cursor: pointer;
+        }
+
+        #startCall {
+            background: #2563eb;
+            color: white;
+        }
+
+        #hangUp {
+            background: #dc2626;
+            color: white;
+        }
+
+        #mute {
+            background: #475569;
+            color: white;
+        }
+
+        #camera {
+            background: #475569;
+            color: white;
+        }
+
+        #status {
+            text-align: center;
+            color: #cbd5e1;
+        }
+
+        @media (max-width: 700px) {
+
+            .videos {
+                grid-template-columns: 1fr;
+            }
+
+            video {
+                max-height: 40vh;
+            }
+
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>📹 CampusChat Call</h1>
+
+    <p id="status">
+        Waiting for camera...
+    </p>
+
+    <div class="videos">
+
+        <div>
+
+            <p>My Camera</p>
+
+            <video
+                id="localVideo"
+                autoplay
+                muted
+                playsinline
+            ></video>
+
+        </div>
+
+        <div>
+
+            <p>Other User</p>
+
+            <video
+                id="remoteVideo"
+                autoplay
+                playsinline
+            ></video>
+
+        </div>
+
+    </div>
+
+    <div class="controls">
+
+        <button id="startCall">
+            Start Camera
+        </button>
+
+        <button id="mute">
+            🎤 Mute
+        </button>
+
+        <button id="camera">
+            📷 Camera Off
+        </button>
+
+        <button id="hangUp">
+            ☎ Hang Up
+        </button>
+
+    </div>
+
+</div>
+
+
+<script src="/socket.io/socket.io.js"></script>
+
+<script src="/js/video.js"></script>
+
+</body>
+
+</html>

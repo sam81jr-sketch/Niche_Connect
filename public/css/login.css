@@ -1,0 +1,112 @@
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    font-family: Arial, sans-serif;
+
+    background: #f1f3f6;
+}
+
+.container {
+    width: 100%;
+    padding: 20px;
+}
+
+.card {
+    width: 100%;
+    max-width: 400px;
+
+    margin: auto;
+
+    padding: 30px;
+
+    background: white;
+
+    border-radius: 16px;
+
+    box-shadow:
+        0 8px 30px rgba(0, 0, 0, 0.1);
+
+    text-align: center;
+}
+
+h1 {
+    margin-bottom: 5px;
+}
+
+.subtitle {
+    color: #777;
+    margin-bottom: 30px;
+}
+
+h2 {
+    margin-bottom: 20px;
+}
+
+input {
+    width: 100%;
+
+    padding: 14px;
+
+    margin-bottom: 12px;
+
+    border: 1px solid #ccc;
+
+    border-radius: 8px;
+
+    font-size: 15px;
+
+    outline: none;
+}
+
+input:focus {
+    border-color: #222;
+}
+
+button {
+    width: 100%;
+
+    padding: 14px;
+
+    border: none;
+
+    border-radius: 8px;
+
+    background: #222;
+
+    color: white;
+
+    font-size: 15px;
+
+    cursor: pointer;
+}
+
+button:hover {
+    opacity: 0.9;
+}
+
+.linkButton {
+    width: auto;
+
+    padding: 0;
+
+    background: none;
+
+    color: #0066ff;
+
+    font-size: inherit;
+}
+
+#loginMessage,
+#registerMessage {
+    min-height: 20px;
+    color: #d00;
+}

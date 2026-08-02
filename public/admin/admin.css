@@ -1,0 +1,705 @@
+* {
+    box-sizing: border-box;
+}
+
+
+body {
+
+    margin: 0;
+
+    min-height: 100vh;
+
+    font-family:
+        Arial,
+        sans-serif;
+
+    background:
+        #f1f5f9;
+
+    color:
+        #0f172a;
+
+}
+
+
+/* ============================= */
+/* LOGIN */
+/* ============================= */
+
+.login-container {
+
+    width: 100%;
+
+    max-width: 420px;
+
+    padding: 20px;
+
+    margin: auto;
+
+}
+
+
+.login-card {
+
+    background: white;
+
+    padding: 30px;
+
+    border-radius: 16px;
+
+    box-shadow:
+        0 10px 30px
+        rgba(0,0,0,0.12);
+
+}
+
+
+.login-card h1,
+.login-card h2 {
+
+    text-align: center;
+
+}
+
+
+input {
+
+    width: 100%;
+
+    padding: 14px;
+
+    margin-bottom: 15px;
+
+    border:
+        1px solid #cbd5e1;
+
+    border-radius: 8px;
+
+    font-size: 16px;
+
+}
+
+
+button {
+
+    padding: 10px 15px;
+
+    border: none;
+
+    border-radius: 8px;
+
+    background: #2563eb;
+
+    color: white;
+
+    cursor: pointer;
+
+}
+
+
+.login-card button {
+
+    width: 100%;
+
+    padding: 14px;
+
+    font-size: 16px;
+
+}
+
+
+button:active {
+
+    transform: scale(0.98);
+
+}
+
+
+#error {
+
+    color: #dc2626;
+
+    text-align: center;
+
+}
+
+
+/* ============================= */
+/* DASHBOARD */
+/* ============================= */
+
+.dashboard {
+
+    width: 100%;
+
+    max-width: 1100px;
+
+    margin: auto;
+
+    padding: 20px;
+
+}
+
+
+.topbar {
+
+    display: flex;
+
+    justify-content:
+        space-between;
+
+    align-items: center;
+
+    gap: 15px;
+
+    margin-bottom: 25px;
+
+}
+
+
+.topbar h1 {
+
+    margin: 0;
+
+}
+
+
+.topbar p {
+
+    margin-top: 5px;
+
+    color: #64748b;
+
+}
+
+
+.logout {
+
+    background:
+        #dc2626;
+
+}
+
+
+/* ============================= */
+/* STATISTICS */
+/* ============================= */
+
+.stats {
+
+    display: grid;
+
+    grid-template-columns:
+        repeat(4, 1fr);
+
+    gap: 15px;
+
+    margin-bottom: 25px;
+
+}
+
+
+.stat-card {
+
+    background: white;
+
+    padding: 20px;
+
+    border-radius: 14px;
+
+    box-shadow:
+        0 3px 12px
+        rgba(0,0,0,0.08);
+
+}
+
+
+.stat-card h3 {
+
+    margin-top: 0;
+
+    color: #64748b;
+
+}
+
+
+.stat-card strong {
+
+    font-size: 30px;
+
+}
+
+
+/* ============================= */
+/* PANELS */
+/* ============================= */
+
+.panel {
+
+    background: white;
+
+    border-radius: 14px;
+
+    padding: 20px;
+
+    margin-bottom: 25px;
+
+    box-shadow:
+        0 3px 12px
+        rgba(0,0,0,0.08);
+
+}
+
+
+.panel-header {
+
+    display: flex;
+
+    justify-content:
+        space-between;
+
+    align-items: center;
+
+    margin-bottom: 15px;
+
+}
+
+
+/* ============================= */
+/* USERS */
+/* ============================= */
+
+.user-row,
+.report-row {
+
+    display: flex;
+
+    justify-content:
+        space-between;
+
+    align-items: center;
+
+    gap: 15px;
+
+    padding: 15px 0;
+
+    border-bottom:
+        1px solid #e2e8f0;
+
+}
+
+
+.user-row:last-child,
+.report-row:last-child {
+
+    border-bottom: none;
+
+}
+
+
+.user-row small {
+
+    display: block;
+
+    color: #64748b;
+
+    margin-top: 4px;
+
+}
+
+
+.badge {
+
+    display: inline-block;
+
+    padding: 5px 8px;
+
+    margin-right: 8px;
+
+    border-radius: 6px;
+
+    background: #fee2e2;
+
+    color: #991b1b;
+
+    font-size: 12px;
+
+    font-weight: bold;
+
+}
+
+
+.report-row p {
+
+    margin: 8px 0;
+
+}
+
+
+.report-row small {
+
+    color: #64748b;
+
+}
+
+
+/* ============================= */
+/* MOBILE */
+/* ============================= */
+
+@media (
+    max-width: 700px
+) {
+
+    .stats {
+
+        grid-template-columns:
+            repeat(2, 1fr);
+
+    }
+
+
+    .topbar {
+
+        align-items: flex-start;
+
+    }
+
+
+    .user-row,
+    .report-row {
+
+        align-items:
+            flex-start;
+
+        flex-direction:
+            column;
+
+    }
+
+
+    .dashboard {
+
+        padding: 12px;
+
+    }
+
+}
+/* ==========================================
+   ROOM ROW
+========================================== */
+
+.room-row,
+.user-row,
+.report-row {
+
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: center;
+
+    gap: 20px;
+
+    padding: 16px;
+
+    border-bottom: 1px solid #e2e8f0;
+
+}
+
+.room-row:last-child,
+.user-row:last-child,
+.report-row:last-child {
+
+    border-bottom: none;
+
+}
+
+
+.room-row small,
+.user-row small {
+
+    display: block;
+
+    margin-top: 5px;
+
+    color: #64748b;
+
+}
+
+
+.room-row button,
+.user-row button,
+.report-row button {
+
+    border: none;
+
+    border-radius: 8px;
+
+    padding: 9px 13px;
+
+    cursor: pointer;
+
+}
+
+
+/* ==========================================
+   BADGE
+========================================== */
+
+.badge {
+
+    display: inline-block;
+
+    padding: 5px 8px;
+
+    margin-right: 8px;
+
+    border-radius: 6px;
+
+    background: #fee2e2;
+
+    color: #dc2626;
+
+    font-size: 11px;
+
+    font-weight: 700;
+
+}
+
+
+/* ==========================================
+   CHAT MODAL
+========================================== */
+
+.modal {
+
+    display: none;
+
+    position: fixed;
+
+    inset: 0;
+
+    z-index: 9999;
+
+    background: rgba(15, 23, 42, 0.65);
+
+    align-items: center;
+
+    justify-content: center;
+
+    padding: 15px;
+
+}
+
+
+.modal-content {
+
+    width: 100%;
+
+    max-width: 800px;
+
+    height: 85vh;
+
+    background: #f1f5f9;
+
+    border-radius: 18px;
+
+    overflow: hidden;
+
+    display: flex;
+
+    flex-direction: column;
+
+}
+
+
+.modal-header {
+
+    min-height: 70px;
+
+    padding: 15px 18px;
+
+    background: white;
+
+    border-bottom: 1px solid #e2e8f0;
+
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: center;
+
+}
+
+
+.modal-header h2 {
+
+    margin: 0;
+
+    font-size: 18px;
+
+}
+
+
+.modal-header p {
+
+    margin: 4px 0 0;
+
+    color: #64748b;
+
+    font-size: 12px;
+
+}
+
+
+.closeButton {
+
+    width: 40px;
+
+    height: 40px;
+
+    border: none;
+
+    border-radius: 10px;
+
+    background: #f1f5f9;
+
+    font-size: 25px;
+
+    cursor: pointer;
+
+}
+
+
+/* ==========================================
+   CHAT MESSAGES
+========================================== */
+
+.chat-messages {
+
+    flex: 1;
+
+    overflow-y: auto;
+
+    padding: 18px;
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 10px;
+
+}
+
+
+.admin-message {
+
+    max-width: 75%;
+
+    padding: 10px 13px;
+
+    border-radius: 14px;
+
+    box-shadow:
+        0 2px 8px
+        rgba(0, 0, 0, 0.05);
+
+}
+
+
+.admin-message.left {
+
+    align-self: flex-start;
+
+    background: white;
+
+}
+
+
+.admin-message.right {
+
+    align-self: flex-end;
+
+    background: #6366f1;
+
+    color: white;
+
+}
+
+
+.message-user {
+
+    font-size: 11px;
+
+    font-weight: 700;
+
+    margin-bottom: 4px;
+
+}
+
+
+.message-text {
+
+    line-height: 1.45;
+
+    word-break: break-word;
+
+}
+
+
+.message-time {
+
+    margin-top: 5px;
+
+    font-size: 9px;
+
+    opacity: 0.6;
+
+}
+
+
+.loading {
+
+    padding: 30px;
+
+    text-align: center;
+
+    color: #64748b;
+
+}
+
+
+/* ==========================================
+   MOBILE
+========================================== */
+
+@media (max-width: 600px) {
+
+    .room-row,
+    .user-row,
+    .report-row {
+
+        align-items: flex-start;
+
+        flex-direction: column;
+
+    }
+
+
+    .admin-message {
+
+        max-width: 90%;
+
+    }
+
+
+    .modal-content {
+
+        height: 90vh;
+
+        border-radius: 12px;
+
+    }
+
+}
