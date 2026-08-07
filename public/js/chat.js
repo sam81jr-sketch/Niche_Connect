@@ -2,326 +2,173 @@
 // NICHE CONNECT - CHAT.JS
 // ==========================================
 
+const token = localStorage.getItem("campuschat_token");
+const savedUser = localStorage.getItem("campuschat_user");
 
-// ==========================================
-// LOGIN
-// ==========================================
-
-const token =
-    localStorage.getItem(
-        "campuschat_token"
-    );
-
-const savedUser =
-    localStorage.getItem(
-        "campuschat_user"
-    );
-
-
-if (
-    !token ||
-    !savedUser
-) {
-
-    window.location.href =
-        "/login.html";
-
-    throw new Error(
-        "User is not logged in."
-    );
-
+if (!token || !savedUser) {
+    window.location.href = "/login.html";
+    throw new Error("User is not logged in.");
 }
-
 
 let user;
 
 try {
-
-    user =
-        JSON.parse(
-            savedUser
-        );
-
+    user = JSON.parse(savedUser);
 } catch (error) {
-
-    localStorage.removeItem(
-        "campuschat_user"
-    );
-
-    localStorage.removeItem(
-        "campuschat_token"
-    );
-
-    window.location.href =
-        "/login.html";
-
+    localStorage.removeItem("campuschat_token");
+    localStorage.removeItem("campuschat_user");
+    window.location.href = "/login.html";
     throw error;
-
 }
 
 
 // ==========================================
-// USER
+// STATE
 // ==========================================
 
-const myUsername =
-    user.username || "User";
+let currentPartner = null;
+let currentRoomId = null;
+let connectedToPartner = false;
+let messageSending = false;
+
+
+// Make these available to video.js
+window.currentPartnerUserId = null;
+window.currentRoomId = null;
+window.currentPartner = null;
 
 
 // ==========================================
 // SOCKET
 // ==========================================
 
-const socket =
-    io({
-        auth: {
-            token: token
-        },
+const socket = io({
+    auth: {
+        token: token
+    },
 
-        transports: [
-            "websocket",
-            "polling"
-        ]
-    });
-
-
-// ==========================================
-// CHAT STATE
-// ==========================================
-
-let currentPartner =
-    null;
-
-let connectedToPartner =
-    false;
-
-let currentRoomId =
-    null;
-
-let messageSending =
-    false;
+    transports: [
+        "websocket",
+        "polling"
+    ]
+});
 
 
 // ==========================================
 // PARTNER UI
 // ==========================================
 
-function setChatPartner(
-    partner
-) {
+function setChatPartner(partner) {
 
-    if (
-        typeof partner ===
-        "string"
-    ) {
+    currentPartner = partner || null;
 
-        currentPartner = {
-            id:
-                window.currentPartnerUserId ||
-                null,
+    window.currentPartner =
+        currentPartner;
 
-            username:
-                partner
-        };
+    if (currentPartner) {
 
-    } else {
+        window.currentPartnerUserId =
+            currentPartner.id;
 
-        currentPartner =
-            partner || null;
+        connectedToPartner = true;
 
-    }
+        const name =
+            currentPartner.username ||
+            "User";
 
+        const partnerUsername =
+            document.getElementById(
+                "partnerUsername"
+            );
 
-    const username =
-        currentPartner
-            ? currentPartner.username
-            : null;
+        const topPartnerUsername =
+            document.getElementById(
+                "topPartnerUsername"
+            );
 
-
-    const topPartner =
-        document.getElementById(
-            "topPartnerUsername"
-        );
-
-    const headerPartner =
-        document.getElementById(
-            "partnerUsername"
-        );
-
-
-    if (username) {
-
-        if (topPartner) {
-
-            topPartner.textContent =
-                username;
-
+        if (partnerUsername) {
+            partnerUsername.textContent =
+                name;
         }
 
-
-        if (headerPartner) {
-
-            headerPartner.textContent =
-                username;
-
+        if (topPartnerUsername) {
+            topPartnerUsername.textContent =
+                name;
         }
 
-
-        connectedToPartner =
-            true;
-
-
-        updateEmptyState(
-            true,
-            username
+        console.log(
+            "Partner set:",
+            currentPartner
         );
 
     } else {
 
-        if (topPartner) {
+        window.currentPartnerUserId =
+            null;
 
-            topPartner.textContent =
+        window.currentPartner =
+            null;
+
+        connectedToPartner = false;
+
+        const partnerUsername =
+            document.getElementById(
+                "partnerUsername"
+            );
+
+        const topPartnerUsername =
+            document.getElementById(
+                "topPartnerUsername"
+            );
+
+        if (partnerUsername) {
+            partnerUsername.textContent =
                 "Finding someone...";
-
         }
 
-
-        if (headerPartner) {
-
-            headerPartner.textContent =
+        if (topPartnerUsername) {
+            topPartnerUsername.textContent =
                 "Finding someone...";
-
         }
 
-
-        connectedToPartner =
-            false;
-
-
-        updateEmptyState(
-            false
-        );
-
     }
-
 }
-
-
-// ==========================================
-// EMPTY STATE
-// ==========================================
-
-function updateEmptyState(
-    connected,
-    partnerName = ""
-) {
-
-    const title =
-        document.getElementById(
-            "emptyTitle"
-        );
-
-    const text =
-        document.getElementById(
-            "emptyText"
-        );
-
-
-    if (
-        !title ||
-        !text
-    ) {
-
-        return;
-
-    }
-
-
-    if (connected) {
-
-        title.textContent =
-            `You're connected with ${partnerName}`;
-
-        text.textContent =
-            "Send a message to start chatting.";
-
-    } else {
-
-        title.textContent =
-            "Finding someone...";
-
-        text.textContent =
-            "Please wait while we connect you with another student.";
-
-    }
-
-}
-
-
-// ==========================================
-// INITIAL STATE
-// ==========================================
-
-setChatPartner(
-    null
-);
-
-window.currentPartnerUserId =
-    null;
-
-window.currentRoomId =
-    null;
 
 
 // ==========================================
 // DISPLAY MESSAGE
 // ==========================================
 
-function displayMessage(
-    data
-) {
+function displayMessage(data) {
 
     if (!data) {
-
         return;
-
     }
-
 
     const container =
         document.getElementById(
             "messages"
         );
 
-
     if (!container) {
-
         console.error(
-            "messages container not found"
+            "Messages container not found."
         );
-
         return;
-
     }
-
 
     const emptyState =
         document.getElementById(
             "emptyState"
         );
 
-
     if (emptyState) {
-
         emptyState.remove();
-
     }
 
 
     const message =
-        document.createElement(
-            "div"
-        );
+        document.createElement("div");
 
     message.className =
         "message";
@@ -340,9 +187,7 @@ function displayMessage(
 
 
     const name =
-        document.createElement(
-            "div"
-        );
+        document.createElement("div");
 
     name.className =
         "name";
@@ -353,9 +198,7 @@ function displayMessage(
 
 
     const time =
-        document.createElement(
-            "span"
-        );
+        document.createElement("span");
 
     time.className =
         "time";
@@ -369,89 +212,35 @@ function displayMessage(
             ).toLocaleTimeString(
                 [],
                 {
-                    hour:
-                        "2-digit",
-
-                    minute:
-                        "2-digit"
+                    hour: "2-digit",
+                    minute: "2-digit"
                 }
             );
 
     }
 
 
-    name.appendChild(
-        time
-    );
+    name.appendChild(time);
 
 
     const text =
-        document.createElement(
-            "div"
-        );
+        document.createElement("div");
 
     text.className =
         "text";
 
     text.textContent =
-        data.message ||
-        "";
+        data.message || "";
 
 
-    message.appendChild(
-        name
-    );
-
-    message.appendChild(
-        text
-    );
+    message.appendChild(name);
+    message.appendChild(text);
 
 
-    // Report button
-    if (
-        String(data.userId) !==
-        String(user.id)
-    ) {
-
-        const reportButton =
-            document.createElement(
-                "button"
-            );
-
-        reportButton.className =
-            "reportButton";
-
-        reportButton.textContent =
-            "🚨 Report";
-
-
-        reportButton.addEventListener(
-            "click",
-            () => {
-
-                reportMessage(
-                    data.id
-                );
-
-            }
-        );
-
-
-        message.appendChild(
-            reportButton
-        );
-
-    }
-
-
-    container.appendChild(
-        message
-    );
-
+    container.appendChild(message);
 
     container.scrollTop =
         container.scrollHeight;
-
 }
 
 
@@ -468,59 +257,26 @@ socket.on(
             messages
         );
 
-
         const container =
             document.getElementById(
                 "messages"
             );
 
-
         if (!container) {
-
             return;
-
         }
 
-
-        container.innerHTML =
-            "";
-
+        container.innerHTML = "";
 
         if (
             !Array.isArray(messages) ||
             messages.length === 0
         ) {
 
-            container.innerHTML = `
-                <div id="emptyState">
-
-                    <div class="emptyIcon">
-                        💬
-                    </div>
-
-                    <h3 id="emptyTitle">
-                        ${
-                            currentPartner
-                                ? `You're connected with ${escapeHTML(currentPartner.username)}`
-                                : "Finding someone..."
-                        }
-                    </h3>
-
-                    <p id="emptyText">
-                        ${
-                            currentPartner
-                                ? "Send a message to start chatting."
-                                : "Please wait while we connect you with another student."
-                        }
-                    </p>
-
-                </div>
-            `;
+            showEmptyChat();
 
             return;
-
         }
-
 
         messages.forEach(
             message => {
@@ -537,7 +293,7 @@ socket.on(
 
 
 // ==========================================
-// NEW MESSAGE
+// RECEIVE MESSAGE
 // ==========================================
 
 socket.on(
@@ -549,10 +305,7 @@ socket.on(
             data
         );
 
-
-        displayMessage(
-            data
-        );
+        displayMessage(data);
 
     }
 );
@@ -569,15 +322,13 @@ function sendMessage() {
             "messageInput"
         );
 
-
     if (!input) {
 
         console.error(
-            "messageInput not found"
+            "messageInput not found."
         );
 
         return;
-
     }
 
 
@@ -586,31 +337,20 @@ function sendMessage() {
 
 
     if (!message) {
-
         return;
-
     }
 
 
-    // Socket check
-    if (
-        !socket.connected
-    ) {
+    if (!socket.connected) {
 
         alert(
-            "Socket is not connected. Please refresh the page."
-        );
-
-        console.error(
-            "Socket disconnected"
+            "Server connection lost. Please refresh the page."
         );
 
         return;
-
     }
 
 
-    // Partner check
     if (
         !connectedToPartner ||
         !currentPartner ||
@@ -621,36 +361,30 @@ function sendMessage() {
             "Please wait until you are connected to another user."
         );
 
-        console.error(
-            "Chat state invalid:",
-            {
-                connected:
-                    connectedToPartner,
+        console.log({
+            connected:
+                connectedToPartner,
 
-                partner:
-                    currentPartner,
+            partner:
+                currentPartner,
 
-                roomId:
-                    currentRoomId
-            }
-        );
+            room:
+                currentRoomId,
+
+            socket:
+                socket.connected
+        });
 
         return;
-
     }
 
 
-    if (
-        messageSending
-    ) {
-
+    if (messageSending) {
         return;
-
     }
 
 
-    messageSending =
-        true;
+    messageSending = true;
 
 
     console.log(
@@ -658,39 +392,21 @@ function sendMessage() {
         message
     );
 
-    console.log(
-        "Socket:",
-        socket.id
-    );
-
-    console.log(
-        "Room:",
-        currentRoomId
-    );
-
-    console.log(
-        "Partner:",
-        currentPartner
-    );
-
 
     socket.emit(
         "chatMessage",
         {
-            message:
-                message
+            message: message
         },
 
         response => {
 
-            messageSending =
-                false;
-
-
             console.log(
-                "Server acknowledgement:",
+                "Message acknowledgement:",
                 response
             );
+
+            messageSending = false;
 
 
             if (
@@ -715,12 +431,10 @@ function sendMessage() {
                 }
 
                 return;
-
             }
 
 
-            input.value =
-                "";
+            input.value = "";
 
             input.focus();
 
@@ -728,17 +442,12 @@ function sendMessage() {
     );
 
 
-    // Safety timeout
     setTimeout(
         () => {
-
-            messageSending =
-                false;
-
+            messageSending = false;
         },
         3000
     );
-
 }
 
 
@@ -750,7 +459,6 @@ const messageInput =
     document.getElementById(
         "messageInput"
     );
-
 
 if (messageInput) {
 
@@ -788,17 +496,14 @@ socket.on(
             message
         );
 
-
-        alert(
-            message
-        );
+        alert(message);
 
     }
 );
 
 
 // ==========================================
-// SOCKET CONNECT
+// CONNECT
 // ==========================================
 
 socket.on(
@@ -806,8 +511,20 @@ socket.on(
     () => {
 
         console.log(
-            "✅ SOCKET CONNECTED:",
+            "================================"
+        );
+
+        console.log(
+            "SOCKET CONNECTED"
+        );
+
+        console.log(
+            "Socket ID:",
             socket.id
+        );
+
+        console.log(
+            "================================"
         );
 
 
@@ -820,7 +537,7 @@ socket.on(
 
 
 // ==========================================
-// SOCKET DISCONNECT
+// DISCONNECT
 // ==========================================
 
 socket.on(
@@ -828,10 +545,9 @@ socket.on(
     reason => {
 
         console.warn(
-            "❌ SOCKET DISCONNECTED:",
+            "Socket disconnected:",
             reason
         );
-
 
         connectedToPartner =
             false;
@@ -849,7 +565,7 @@ socket.on(
     error => {
 
         console.error(
-            "❌ SOCKET CONNECTION ERROR:",
+            "Socket connection error:",
             error.message
         );
 
@@ -892,15 +608,11 @@ socket.on(
             data
         );
 
-
         alert(
-            "This account is already open in another tab or device. Please close the other session."
+            "This account is already connected in another tab or device."
         );
 
-
-        socket.disconnect(
-            true
-        );
+        socket.disconnect(true);
 
     }
 );
@@ -925,37 +637,25 @@ socket.on(
             !data.partner
         ) {
 
-            setChatPartner(
-                null
-            );
+            setChatPartner(null);
 
-            currentRoomId =
-                null;
+            currentRoomId = null;
 
             window.currentRoomId =
                 null;
 
-            window.currentPartnerUserId =
-                null;
-
             return;
-
         }
 
 
         currentRoomId =
             data.roomId;
 
-
         window.currentRoomId =
             data.roomId;
 
 
-        window.currentPartnerUserId =
-            data.partner.id;
-
-
-        currentPartner = {
+        const partner = {
 
             id:
                 data.partner.id,
@@ -966,61 +666,52 @@ socket.on(
         };
 
 
-        connectedToPartner =
-            true;
-
-
         setChatPartner(
-            currentPartner
+            partner
         );
 
 
-        console.log(
-            "Partner:",
-            currentPartner
-        );
+        // ==================================
+        // IMPORTANT FOR VIDEO.JS
+        // ==================================
+
+        window.currentPartner =
+            partner;
+
+        window.currentPartnerUserId =
+            partner.id;
+
+
+        // Also save for video.js
+        try {
+
+            sessionStorage.setItem(
+                "currentPartner",
+                JSON.stringify(partner)
+            );
+
+        } catch (error) {
+
+            console.warn(
+                "Unable to save partner:",
+                error
+            );
+
+        }
+
 
         console.log(
-            "Partner ID:",
+            "VIDEO PARTNER ID:",
             window.currentPartnerUserId
         );
 
         console.log(
-            "Room:",
-            currentRoomId
+            "VIDEO PARTNER:",
+            window.currentPartner
         );
 
 
-        const container =
-            document.getElementById(
-                "messages"
-            );
-
-
-        if (container) {
-
-            container.innerHTML = `
-                <div id="emptyState">
-
-                    <div class="emptyIcon">
-                        💬
-                    </div>
-
-                    <h3 id="emptyTitle">
-                        You're connected with
-                        ${escapeHTML(
-                            data.partner.username
-                        )}
-                    </h3>
-
-                    <p id="emptyText">
-                        Send a message to start chatting.
-                    </p>
-
-                </div>
-            `;
-
-        }
+        showEmptyChat();
 
     }
 );
@@ -1035,20 +726,21 @@ socket.on(
     data => {
 
         console.log(
-            "⏳ WAITING:",
+            "Waiting:",
             data
         );
 
 
-        currentPartner =
-            null;
+        currentPartner = null;
 
-        currentRoomId =
-            null;
+        currentRoomId = null;
 
         connectedToPartner =
             false;
 
+
+        window.currentPartner =
+            null;
 
         window.currentPartnerUserId =
             null;
@@ -1057,9 +749,16 @@ socket.on(
             null;
 
 
-        setChatPartner(
-            null
-        );
+        try {
+
+            sessionStorage.removeItem(
+                "currentPartner"
+            );
+
+        } catch (error) {}
+
+
+        setChatPartner(null);
 
     }
 );
@@ -1078,15 +777,16 @@ socket.on(
         );
 
 
-        currentPartner =
-            null;
+        currentPartner = null;
 
-        currentRoomId =
-            null;
+        currentRoomId = null;
 
         connectedToPartner =
             false;
 
+
+        window.currentPartner =
+            null;
 
         window.currentPartnerUserId =
             null;
@@ -1094,9 +794,8 @@ socket.on(
         window.currentRoomId =
             null;
 
-        setChatPartner(
-            null
-        );
+
+        setChatPartner(null);
 
     }
 );
@@ -1116,15 +815,16 @@ socket.on(
         );
 
 
-        currentPartner =
-            null;
+        currentPartner = null;
 
-        currentRoomId =
-            null;
+        currentRoomId = null;
 
         connectedToPartner =
             false;
 
+
+        window.currentPartner =
+            null;
 
         window.currentPartnerUserId =
             null;
@@ -1133,39 +833,19 @@ socket.on(
             null;
 
 
-        setChatPartner(
-            null
-        );
+        try {
 
-
-        const container =
-            document.getElementById(
-                "messages"
+            sessionStorage.removeItem(
+                "currentPartner"
             );
 
+        } catch (error) {}
 
-        if (container) {
 
-            container.innerHTML = `
-                <div id="emptyState">
+        setChatPartner(null);
 
-                    <div class="emptyIcon">
-                        🔎
-                    </div>
 
-                    <h3 id="emptyTitle">
-                        Finding someone...
-                    </h3>
-
-                    <p id="emptyText">
-                        Your previous connection ended.
-                        We're looking for a new user.
-                    </p>
-
-                </div>
-            `;
-
-        }
+        showSearchingState();
 
     }
 );
@@ -1185,15 +865,16 @@ socket.on(
         );
 
 
-        currentPartner =
-            null;
+        currentPartner = null;
 
-        currentRoomId =
-            null;
+        currentRoomId = null;
 
         connectedToPartner =
             false;
 
+
+        window.currentPartner =
+            null;
 
         window.currentPartnerUserId =
             null;
@@ -1202,22 +883,27 @@ socket.on(
             null;
 
 
-        setChatPartner(
-            null
-        );
+        setChatPartner(null);
 
     }
 );
 
 
 // ==========================================
-// SKIP
+// SKIP USER
 // ==========================================
 
 function skipUser() {
 
+    if (!connectedToPartner) {
+        return;
+    }
+
+
     if (
-        !connectedToPartner
+        !confirm(
+            "Skip this user and find someone new?"
+        )
     ) {
 
         return;
@@ -1225,19 +911,7 @@ function skipUser() {
     }
 
 
-    const confirmed =
-        confirm(
-            "Skip this user and find someone new?"
-        );
-
-
-    if (!confirmed) {
-
-        return;
-
-    }
-
-
+    // Stop video if running
     if (
         typeof window.endVideoCall ===
         "function"
@@ -1249,7 +923,7 @@ function skipUser() {
 
         } catch (error) {
 
-            console.log(
+            console.warn(
                 "Video cleanup:",
                 error
             );
@@ -1264,15 +938,15 @@ function skipUser() {
     );
 
 
-    currentPartner =
-        null;
-
-    currentRoomId =
-        null;
+    currentPartner = null;
+    currentRoomId = null;
 
     connectedToPartner =
         false;
 
+
+    window.currentPartner =
+        null;
 
     window.currentPartnerUserId =
         null;
@@ -1281,11 +955,115 @@ function skipUser() {
         null;
 
 
-    setChatPartner(
-        null
+    setChatPartner(null);
+
+}
+
+
+// ==========================================
+// VIDEO CALL
+// ==========================================
+
+function startVideoCall() {
+
+    console.log(
+        "================================"
+    );
+
+    console.log(
+        "START VIDEO CALL"
+    );
+
+    console.log(
+        "callUser:",
+        typeof window.callUser
+    );
+
+    console.log(
+        "partner:",
+        window.currentPartner
+    );
+
+    console.log(
+        "partner ID:",
+        window.currentPartnerUserId
+    );
+
+    console.log(
+        "room:",
+        window.currentRoomId
+    );
+
+    console.log(
+        "================================"
+    );
+
+
+    // Check video module
+    if (
+        typeof window.callUser !==
+        "function"
+    ) {
+
+        console.error(
+            "VIDEO.JS NOT LOADED"
+        );
+
+        alert(
+            "Video call module is not loaded. Please refresh the page."
+        );
+
+        return;
+    }
+
+
+    // Check partner
+    if (
+        !window.currentPartnerUserId
+    ) {
+
+        alert(
+            "No chat partner is connected."
+        );
+
+        return;
+    }
+
+
+    // Check socket
+    if (
+        !socket.connected
+    ) {
+
+        alert(
+            "Server connection is not active."
+        );
+
+        return;
+    }
+
+
+    console.log(
+        "Calling user:",
+        window.currentPartnerUserId
+    );
+
+
+    // Use the actual exported video function
+    window.callUser(
+        window.currentPartnerUserId,
+        "video"
     );
 
 }
+
+
+// ==========================================
+// VIDEO CALL ALIAS
+// ==========================================
+
+window.startVideoCall =
+    startVideoCall;
 
 
 // ==========================================
@@ -1303,7 +1081,6 @@ async function reportMessage(
         );
 
         return;
-
     }
 
 
@@ -1319,7 +1096,6 @@ async function reportMessage(
     ) {
 
         return;
-
     }
 
 
@@ -1329,17 +1105,14 @@ async function reportMessage(
             await fetch(
                 "/api/reports",
                 {
-                    method:
-                        "POST",
+                    method: "POST",
 
                     headers: {
-
                         "Content-Type":
                             "application/json",
 
                         "Authorization":
                             `Bearer ${token}`
-
                     },
 
                     body:
@@ -1350,7 +1123,6 @@ async function reportMessage(
                             reason:
                                 reason.trim()
                         })
-
                 }
             );
 
@@ -1372,7 +1144,6 @@ async function reportMessage(
             error
         );
 
-
         alert(
             "Unable to submit report."
         );
@@ -1383,81 +1154,109 @@ async function reportMessage(
 
 
 // ==========================================
+// SHOW EMPTY CHAT
+// ==========================================
+
+function showEmptyChat() {
+
+    const container =
+        document.getElementById(
+            "messages"
+        );
+
+    if (!container) {
+        return;
+    }
+
+
+    const partnerName =
+        currentPartner &&
+        currentPartner.username
+            ? currentPartner.username
+            : "your partner";
+
+
+    container.innerHTML = `
+
+        <div id="emptyState">
+
+            <div class="emptyIcon">
+                💬
+            </div>
+
+            <h3 id="emptyTitle">
+                You're connected with
+                ${escapeHTML(partnerName)}
+            </h3>
+
+            <p id="emptyText">
+                Send a message to start chatting.
+            </p>
+
+        </div>
+
+    `;
+
+}
+
+
+// ==========================================
+// SEARCHING STATE
+// ==========================================
+
+function showSearchingState() {
+
+    const container =
+        document.getElementById(
+            "messages"
+        );
+
+    if (!container) {
+        return;
+    }
+
+
+    container.innerHTML = `
+
+        <div id="emptyState">
+
+            <div class="emptyIcon">
+                🔎
+            </div>
+
+            <h3 id="emptyTitle">
+                Finding someone...
+            </h3>
+
+            <p id="emptyText">
+                Please wait while we connect you
+                with another student.
+            </p>
+
+        </div>
+
+    `;
+
+}
+
+
+// ==========================================
 // ESCAPE HTML
 // ==========================================
 
-function escapeHTML(
-    value
-) {
+function escapeHTML(value) {
 
     const div =
         document.createElement(
             "div"
         );
 
-
     div.textContent =
         value == null
             ? ""
             : String(value);
 
-
     return div.innerHTML;
-
-}
-
-
-// ==========================================
-// VIDEO CALL
-// ==========================================
-
-function startVideoCall() {
-
-    if (
-        !currentPartner
-    ) {
-
-        alert(
-            "You are not connected to another user."
-        );
-
-        return;
-
-    }
-
-
-    if (
-        typeof window.callUser !==
-        "function"
-    ) {
-
-        alert(
-            "Video call module is not loaded."
-        );
-
-        return;
-
-    }
-
-
-    if (
-        !window.currentPartnerUserId
-    ) {
-
-        alert(
-            "Unable to find the connected user's ID."
-        );
-
-        return;
-
-    }
-
-
-    window.callUser(
-        window.currentPartnerUserId,
-        "video"
-    );
-
 }
 
 
@@ -1476,14 +1275,7 @@ function logout() {
 
             window.endVideoCall();
 
-        } catch (error) {
-
-            console.log(
-                "Video cleanup:",
-                error
-            );
-
-        }
+        } catch (error) {}
 
     }
 
@@ -1497,6 +1289,11 @@ function logout() {
 
     localStorage.removeItem(
         "campuschat_user"
+    );
+
+
+    sessionStorage.removeItem(
+        "currentPartner"
     );
 
 
@@ -1520,17 +1317,26 @@ function getChatDebugInfo() {
         socketId:
             socket.id,
 
+        user:
+            user,
+
         currentRoomId:
             currentRoomId,
 
-        partner:
+        currentPartner:
             currentPartner,
+
+        windowPartner:
+            window.currentPartner,
 
         partnerUserId:
             window.currentPartnerUserId,
 
         connectedToPartner:
-            connectedToPartner
+            connectedToPartner,
+
+        videoCallUser:
+            typeof window.callUser
 
     };
 
@@ -1538,7 +1344,7 @@ function getChatDebugInfo() {
 
 
 // ==========================================
-// EXPORT
+// EXPORTS
 // ==========================================
 
 window.sendMessage =
@@ -1572,9 +1378,14 @@ console.log(
 );
 
 console.log(
-    " NICHE CHAT.JS LOADED"
+    " NICHE CONNECT CHAT.JS LOADED"
 );
 
 console.log(
     "================================"
+);
+
+console.log(
+    "Video callUser currently:",
+    typeof window.callUser
 );
