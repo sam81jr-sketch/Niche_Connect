@@ -9,7 +9,6 @@ const {
     initDatabase
 } = require("./database/database");
 
-
 const authRoutes =
     require("./routes/auth");
 
@@ -22,11 +21,9 @@ const adminRoutes =
 const adminLoginRoutes =
     require("./routes/adminLogin");
 
-
 const {
     containsBlockedWord
 } = require("./services/moderation");
-
 
 const {
     addStrike,
@@ -50,40 +47,33 @@ const server =
 
 const io =
     new Server(server, {
-
         cors: {
             origin: "*",
-            methods: [
-                "GET",
-                "POST"
-            ]
-        }
-
+            methods: ["GET", "POST"]
+        },
+        transports: ["websocket", "polling"]
     });
 
 
 // ==========================================
 // PORT
 // ==========================================
-const PORT = process.env.PORT || 3000;
 
-
+const PORT =
+    process.env.PORT || 3000;
 
 
 // ==========================================
-// JWT SECRET
+// JWT
 // ==========================================
-//
-// IMPORTANT:
-// Change this to your own long random secret.
-// Do NOT change it after users have registered
-// unless you also handle existing tokens.
-//
 
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET =
+    process.env.JWT_SECRET;
 
 if (!JWT_SECRET) {
-    throw new Error("JWT_SECRET environment variable is required.");
+    throw new Error(
+        "JWT_SECRET environment variable is required."
+    );
 }
 
 
@@ -95,12 +85,12 @@ app.use(
     express.json()
 );
 
-
 app.use(
     express.urlencoded({
         extended: true
     })
 );
+
 
 // ==========================================
 // STATIC FILES
@@ -125,18 +115,15 @@ app.use(
     authRoutes
 );
 
-
 app.use(
     "/api/reports",
     reportRoutes
 );
 
-
 app.use(
     "/api/admin",
     adminRoutes
 );
-
 
 app.use(
     "/api/admin-auth",
@@ -153,18 +140,10 @@ app.get(
     (req, res) => {
 
         res.json({
-
             status: "online",
-
-            application:
-                "NICHE Connect",
-
-            database:
-                "connected",
-
-            time:
-                new Date().toISOString()
-
+            application: "NICHE Connect",
+            database: "connected",
+            time: new Date().toISOString()
         });
 
     }
@@ -172,10 +151,17 @@ app.get(
 
 
 // ==========================================
-// WAITING USER
+// MATCHING
 // ==========================================
 
+// Only ONE socket waits here.
 let waitingUser = null;
+
+
+// Keep track of active sockets by user ID.
+// This prevents the same account from being
+// matched with itself through multiple tabs.
+const activeUserSockets = new Map();
 
 
 // ==========================================
@@ -188,8 +174,8 @@ io.use(
         try {
 
             const token =
+                socket.handshake.auth &&
                 socket.handshake.auth.token;
-
 
             if (!token) {
 
@@ -201,27 +187,37 @@ io.use(
 
             }
 
-
             const decoded =
                 jwt.verify(
                     token,
                     JWT_SECRET
                 );
 
+            if (
+                !decoded ||
+                !decoded.id ||
+                !decoded.username
+            ) {
+
+                return next(
+                    new Error(
+                        "Invalid authentication token"
+                    )
+                );
+
+            }
 
             socket.user =
                 decoded;
-
 
             next();
 
         } catch (error) {
 
-            console.log(
+            console.error(
                 "Socket authentication failed:",
                 error.message
             );
-
 
             next(
                 new Error(
@@ -236,7 +232,7 @@ io.use(
 
 
 // ==========================================
-// CREATE PRIVATE ROOM
+// CREATE ROOM
 // ==========================================
 
 async function createRoom(
@@ -252,11 +248,9 @@ async function createRoom(
             .toString(36)
             .substring(2, 8);
 
-
     const room = {
 
-        id:
-            roomId,
+        id: roomId,
 
         user1Id:
             socketA.user.id,
@@ -270,23 +264,26 @@ async function createRoom(
         user2Username:
             socketB.user.username,
 
-        active:
-            true,
+        active: true,
 
-        videoCallActive:
-            false,
+        videoCallActive: false,
 
         createdAt:
             Date.now(),
 
-        endedAt:
-            null
+        endedAt: null
 
     };
 
 
-    if (!Array.isArray(db.data.rooms)) {
+    if (
+        !Array.isArray(
+            db.data.rooms
+        )
+    ) {
+
         db.data.rooms = [];
+
     }
 
 
@@ -328,19 +325,33 @@ async function createRoom(
     await db.write();
 
 
+    console.log(
+        "ROOM READY:",
+        roomId,
+        "|",
+        socketA.user.username,
+        "<->",
+        socketB.user.username
+    );
+
+
     return room;
 
 }
 
 
 // ==========================================
-// GET USER ROOM
+// GET ROOM
 // ==========================================
 
 function getUserRoom(socket) {
 
-    if (!socket.currentRoomId) {
+    if (
+        !socket.currentRoomId
+    ) {
+
         return null;
+
     }
 
 
@@ -356,18 +367,69 @@ function getUserRoom(socket) {
 
 
 // ==========================================
-// GET PARTNER SOCKET
+// GET PARTNER
 // ==========================================
 
 function getPartnerSocket(socket) {
 
-    if (!socket.partnerSocketId) {
+    if (
+        !socket.partnerSocketId
+    ) {
+
         return null;
+
     }
 
 
-    return io.sockets.sockets.get(
-        socket.partnerSocketId
+    const partner =
+        io.sockets.sockets.get(
+            socket.partnerSocketId
+        );
+
+
+    if (
+        !partner ||
+        !partner.connected
+    ) {
+
+        return null;
+
+    }
+
+
+    return partner;
+
+}
+
+
+// ==========================================
+// SEND WAITING
+// ==========================================
+
+function sendWaiting(socket) {
+
+    if (
+        !socket ||
+        !socket.connected
+    ) {
+
+        return;
+
+    }
+
+
+    socket.emit(
+        "waiting",
+        {
+            message:
+                "Waiting for a new user..."
+        }
+    );
+
+
+    console.log(
+        socket.user.username,
+        "is waiting"
     );
 
 }
@@ -377,11 +439,37 @@ function getPartnerSocket(socket) {
 // FIND PARTNER
 // ==========================================
 
-function findPartner(socket) {
+async function findPartner(socket) {
 
-    // Already inside room
-    if (socket.currentRoomId) {
+    if (
+        !socket ||
+        !socket.connected
+    ) {
+
         return;
+
+    }
+
+
+    // Already matched
+    if (
+        socket.currentRoomId
+    ) {
+
+        return;
+
+    }
+
+
+    // Clean stale waiting socket
+    if (
+        waitingUser &&
+        !waitingUser.connected
+    ) {
+
+        waitingUser =
+            null;
+
     }
 
 
@@ -390,7 +478,9 @@ function findPartner(socket) {
         waitingUser &&
         waitingUser.id === socket.id
     ) {
+
         return;
+
     }
 
 
@@ -400,32 +490,12 @@ function findPartner(socket) {
         waitingUser =
             socket;
 
-
-        socket.emit(
-            "waiting",
-            {
-                message:
-                    "Waiting for a new user..."
-            }
+        sendWaiting(
+            socket
         );
 
-
-        console.log(
-            socket.user.username,
-            "is waiting"
-        );
-
-
         return;
-    }
 
-
-    // Don't match with itself
-    if (
-        waitingUser.id ===
-        socket.id
-    ) {
-        return;
     }
 
 
@@ -437,52 +507,398 @@ function findPartner(socket) {
         null;
 
 
-    // Check partner connection
-    if (!partner.connected) {
+    // Never match a user with himself
+    if (
+        String(
+            partner.user.id
+        ) ===
+        String(
+            socket.user.id
+        )
+    ) {
 
-        findPartner(socket);
+        console.log(
+            "Same user attempted to match:",
+            socket.user.username
+        );
+
+
+        // Keep the newest socket waiting
+        if (
+            partner.connected
+        ) {
+
+            waitingUser =
+                partner;
+
+            sendWaiting(
+                socket
+            );
+
+        } else {
+
+            sendWaiting(
+                socket
+            );
+
+            waitingUser =
+                socket;
+
+        }
 
         return;
 
     }
 
 
-    createRoom(
-        partner,
-        socket
-    )
-        .then(
-            room => {
+    if (
+        !partner.connected
+    ) {
 
-                console.log(
-                    "Private room created:",
-                    room.id
-                );
+        waitingUser =
+            socket;
 
+        sendWaiting(
+            socket
+        );
 
-                // First user
-                partner.emit(
-                    "matched",
-                    {
+        return;
 
-                        roomId:
-                            room.id,
-
-                        partner: {
-
-                            id:
-                                socket.user.id,
-
-                            username:
-                                socket.user.username
-
-                        }
-
-                    }
-                );
+    }
 
 
-                // Second user
+    try {
+
+        const room =
+            await createRoom(
+                partner,
+                socket
+            );
+
+
+        partner.emit(
+            "matched",
+            {
+                roomId:
+                    room.id,
+
+                partner: {
+                    id:
+                        socket.user.id,
+
+                    username:
+                        socket.user.username
+                }
+            }
+        );
+
+
+        socket.emit(
+            "matched",
+            {
+                roomId:
+                    room.id,
+
+                partner: {
+                    id:
+                        partner.user.id,
+
+                    username:
+                        partner.user.username
+                }
+            }
+        );
+
+
+        console.log(
+            "MATCHED:",
+            partner.user.username,
+            "<->",
+            socket.user.username
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Room creation error:",
+            error
+        );
+
+
+        if (
+            partner.connected
+        ) {
+
+            waitingUser =
+                partner;
+
+        }
+
+        sendWaiting(
+            socket
+        );
+
+    }
+
+}
+
+
+// ==========================================
+// END ROOM
+// ==========================================
+
+async function endRoom(
+    socket,
+    reason = "ended"
+) {
+
+    const room =
+        getUserRoom(
+            socket
+        );
+
+
+    if (!room) {
+
+        return;
+
+    }
+
+
+    room.active =
+        false;
+
+    room.videoCallActive =
+        false;
+
+    room.endedAt =
+        Date.now();
+
+
+    const partner =
+        getPartnerSocket(
+            socket
+        );
+
+
+    socket.leave(
+        room.id
+    );
+
+
+    socket.currentRoomId =
+        null;
+
+    socket.partnerSocketId =
+        null;
+
+    socket.partnerUserId =
+        null;
+
+
+    if (partner) {
+
+        partner.leave(
+            room.id
+        );
+
+        partner.currentRoomId =
+            null;
+
+        partner.partnerSocketId =
+            null;
+
+        partner.partnerUserId =
+            null;
+
+        partner.currentCallId =
+            null;
+
+
+        partner.emit(
+            "partner-left",
+            {
+                reason:
+                    reason
+            }
+        );
+
+    }
+
+
+    await db.write();
+
+
+    socket.emit(
+        "room-ended",
+        {
+            reason:
+                reason
+        }
+    );
+
+
+    // Find new partners after ending
+    if (
+        partner &&
+        partner.connected
+    ) {
+
+        await findPartner(
+            partner
+        );
+
+    }
+
+
+    if (
+        socket.connected
+    ) {
+
+        await findPartner(
+            socket
+        );
+
+    }
+
+}
+
+
+// ==========================================
+// SOCKET CONNECTION
+// ==========================================
+
+io.on(
+    "connection",
+    async (socket) => {
+
+        console.log(
+            "User connected:",
+            socket.user.username,
+            socket.id
+        );
+
+
+        socket.currentRoomId =
+            null;
+
+        socket.partnerSocketId =
+            null;
+
+        socket.partnerUserId =
+            null;
+
+        socket.currentCallId =
+            null;
+
+
+        // ==================================
+        // DUPLICATE ACCOUNT CHECK
+        // ==================================
+
+        const userKey =
+            String(
+                socket.user.id
+            );
+
+
+        const oldSocket =
+            activeUserSockets.get(
+                userKey
+            );
+
+
+        if (
+            oldSocket &&
+            oldSocket.id !== socket.id &&
+            oldSocket.connected
+        ) {
+
+            console.log(
+                "Duplicate connection rejected:",
+                socket.user.username
+            );
+
+
+            socket.emit(
+                "duplicate-connection",
+                {
+                    message:
+                        "This account is already connected in another tab or device."
+                }
+            );
+
+
+            socket.disconnect(
+                true
+            );
+
+
+            return;
+
+        }
+
+
+        activeUserSockets.set(
+            userKey,
+            socket
+        );
+
+
+        // ==================================
+        // FIND MATCH
+        // ==================================
+
+        await findPartner(
+            socket
+        );
+
+
+        // ==================================
+        // CURRENT ROOM
+        // ==================================
+
+        socket.on(
+            "getCurrentRoom",
+            () => {
+
+                const room =
+                    getUserRoom(
+                        socket
+                    );
+
+
+                if (
+                    !room ||
+                    !room.active
+                ) {
+
+                    socket.emit(
+                        "noRoom"
+                    );
+
+                    return;
+
+                }
+
+
+                const partner =
+                    getPartnerSocket(
+                        socket
+                    );
+
+
+                if (!partner) {
+
+                    socket.emit(
+                        "noRoom"
+                    );
+
+                    return;
+
+                }
+
+
                 socket.emit(
                     "matched",
                     {
@@ -503,207 +919,7 @@ function findPartner(socket) {
                     }
                 );
 
-            }
-        )
-        .catch(
-            error => {
 
-                console.error(
-                    "Room creation error:",
-                    error
-                );
-
-            }
-        );
-
-}
-
-
-// ==========================================
-// END ROOM
-// ==========================================
-
-async function endRoom(
-    socket,
-    reason = "ended"
-) {
-
-    const room =
-        getUserRoom(socket);
-
-
-    if (!room) {
-        return;
-    }
-
-
-    room.active =
-        false;
-
-
-    room.videoCallActive =
-        false;
-
-
-    room.endedAt =
-        Date.now();
-
-
-    await db.write();
-
-
-    const partner =
-        getPartnerSocket(socket);
-
-
-    if (partner) {
-
-        partner.currentRoomId =
-            null;
-
-        partner.partnerSocketId =
-            null;
-
-        partner.partnerUserId =
-            null;
-
-
-        partner.leave(
-            room.id
-        );
-
-
-        partner.emit(
-            "partner-left",
-            {
-                reason:
-                    reason
-            }
-        );
-
-
-        findPartner(
-            partner
-        );
-
-    }
-
-
-    socket.leave(
-        room.id
-    );
-
-
-    socket.currentRoomId =
-        null;
-
-    socket.partnerSocketId =
-        null;
-
-    socket.partnerUserId =
-        null;
-
-
-    socket.emit(
-        "room-ended",
-        {
-            reason:
-                reason
-        }
-    );
-
-}
-
-
-// ==========================================
-// SOCKET CONNECTION
-// ==========================================
-
-io.on(
-    "connection",
-    (socket) => {
-
-        console.log(
-            "User connected:",
-            socket.user.username
-        );
-
-
-        socket.currentRoomId =
-            null;
-
-        socket.partnerSocketId =
-            null;
-
-        socket.partnerUserId =
-            null;
-
-
-        // ==================================
-        // FIND MATCH
-        // ==================================
-
-        findPartner(
-            socket
-        );
-
-
-        // ==================================
-        // CURRENT ROOM
-        // ==================================
-
-        socket.on(
-            "getCurrentRoom",
-            () => {
-
-                const room =
-                    getUserRoom(
-                        socket
-                    );
-
-
-                if (!room) {
-
-                    socket.emit(
-                        "noRoom"
-                    );
-
-                    return;
-
-                }
-
-
-                const partner =
-                    getPartnerSocket(
-                        socket
-                    );
-
-
-                socket.emit(
-                    "matched",
-                    {
-
-                        roomId:
-                            room.id,
-
-                        partner:
-                            partner
-                                ? {
-
-                                    id:
-                                        partner.user.id,
-
-                                    username:
-                                        partner.user.username
-
-                                }
-                                : null
-
-                    }
-                );
-
-
-                // Send message history
                 const messages =
                     (
                         db.data.messages ||
@@ -733,19 +949,14 @@ io.on(
             async () => {
 
                 console.log(
-                    socket.user.username,
-                    "skipped current user"
+                    "Skip:",
+                    socket.user.username
                 );
 
 
                 await endRoom(
                     socket,
                     "skipped"
-                );
-
-
-                findPartner(
-                    socket
                 );
 
             }
@@ -758,15 +969,39 @@ io.on(
 
         socket.on(
             "chatMessage",
-            async (data) => {
+            async (
+                data,
+                callback
+            ) => {
 
                 try {
 
+                    console.log(
+                        "CHAT MESSAGE RECEIVED:",
+                        socket.user.username,
+                        data
+                    );
+
+
+                    // Validate
                     if (
                         !data ||
                         typeof data.message !==
-                        "string"
+                            "string"
                     ) {
+
+                        if (
+                            typeof callback ===
+                            "function"
+                        ) {
+
+                            callback({
+                                ok: false,
+                                error:
+                                    "Invalid message."
+                            });
+
+                        }
 
                         return;
 
@@ -778,7 +1013,22 @@ io.on(
 
 
                     if (!text) {
+
+                        if (
+                            typeof callback ===
+                            "function"
+                        ) {
+
+                            callback({
+                                ok: false,
+                                error:
+                                    "Message cannot be empty."
+                            });
+
+                        }
+
                         return;
+
                     }
 
 
@@ -796,15 +1046,22 @@ io.on(
                     }
 
 
-                    // Find user
+                    // ==================================
+                    // USER
+                    // ==================================
+
                     const user =
                         (
                             db.data.users ||
                             []
                         ).find(
                             u =>
-                                String(u.id) ===
-                                String(socket.user.id)
+                                String(
+                                    u.id
+                                ) ===
+                                String(
+                                    socket.user.id
+                                )
                         );
 
 
@@ -820,7 +1077,10 @@ io.on(
                     }
 
 
-                    // Find room
+                    // ==================================
+                    // ROOM
+                    // ==================================
+
                     const room =
                         getUserRoom(
                             socket
@@ -842,13 +1102,57 @@ io.on(
                     }
 
 
-                    // Check ban
+                    // ==================================
+                    // PARTNER
+                    // ==================================
+
+                    const partner =
+                        getPartnerSocket(
+                            socket
+                        );
+
+
+                    if (!partner) {
+
+                        socket.emit(
+                            "chatError",
+                            "Your chat partner is no longer connected."
+                        );
+
+                        return;
+
+                    }
+
+
+                    // Never allow accidental self-chat
+                    if (
+                        String(
+                            partner.user.id
+                        ) ===
+                        String(
+                            socket.user.id
+                        )
+                    ) {
+
+                        socket.emit(
+                            "chatError",
+                            "Invalid chat partner."
+                        );
+
+                        return;
+
+                    }
+
+
+                    // ==================================
+                    // BAN
+                    // ==================================
+
                     if (
                         isBanned(user)
                     ) {
 
                         await db.write();
-
 
                         socket.emit(
                             "chatError",
@@ -860,7 +1164,10 @@ io.on(
                     }
 
 
-                    // Moderation
+                    // ==================================
+                    // MODERATION
+                    // ==================================
+
                     if (
                         containsBlockedWord(
                             text
@@ -893,13 +1200,15 @@ io.on(
 
                         }
 
-
                         return;
 
                     }
 
 
-                    // Create message
+                    // ==================================
+                    // MESSAGE
+                    // ==================================
+
                     const newMessage = {
 
                         id:
@@ -927,7 +1236,6 @@ io.on(
                     };
 
 
-                    // Save
                     if (
                         !Array.isArray(
                             db.data.messages
@@ -945,7 +1253,6 @@ io.on(
                     );
 
 
-                    // Keep latest 10000
                     if (
                         db.data.messages.length >
                         10000
@@ -962,14 +1269,51 @@ io.on(
                     await db.write();
 
 
-                    // Send to private room
-                    io.to(
+                    // ==================================
+                    // DIRECT DELIVERY
+                    // ==================================
+
+                    console.log(
+                        "DELIVERING MESSAGE:",
+                        socket.user.username,
+                        "->",
+                        partner.user.username,
+                        "| room:",
                         room.id
-                    ).emit(
+                    );
+
+
+                    // Send to sender
+                    socket.emit(
                         "chatMessage",
                         newMessage
                     );
 
+
+                    // Send directly to partner
+                    partner.emit(
+                        "chatMessage",
+                        newMessage
+                    );
+
+
+                    console.log(
+                        "MESSAGE DELIVERED"
+                    );
+
+
+                    if (
+                        typeof callback ===
+                        "function"
+                    ) {
+
+                        callback({
+                            ok: true,
+                            messageId:
+                                newMessage.id
+                        });
+
+                    }
 
                 } catch (error) {
 
@@ -984,6 +1328,20 @@ io.on(
                         "Unable to send message."
                     );
 
+
+                    if (
+                        typeof callback ===
+                        "function"
+                    ) {
+
+                        callback({
+                            ok: false,
+                            error:
+                                "Unable to send message."
+                        });
+
+                    }
+
                 }
 
             }
@@ -991,7 +1349,7 @@ io.on(
 
 
         // ==================================
-        // START VIDEO CALL
+        // VIDEO CALL
         // ==================================
 
         socket.on(
@@ -1004,7 +1362,6 @@ io.on(
                         getPartnerSocket(
                             socket
                         );
-
 
                     const room =
                         getUserRoom(
@@ -1032,7 +1389,6 @@ io.on(
                         true;
 
 
-                    // Create call record
                     const callId =
                         "call_" +
                         Date.now() +
@@ -1063,8 +1419,10 @@ io.on(
                             partner.user.username,
 
                         type:
-                            data.callType ||
-                            "video",
+                            data &&
+                            data.callType
+                                ? data.callType
+                                : "video",
 
                         status:
                             "ringing",
@@ -1101,11 +1459,9 @@ io.on(
                     );
 
 
-                    // Save
                     await db.write();
 
 
-                    // Store active call
                     socket.currentCallId =
                         callId;
 
@@ -1113,7 +1469,14 @@ io.on(
                         callId;
 
 
-                    // Send WebRTC offer
+                    console.log(
+                        "VIDEO CALL:",
+                        socket.user.username,
+                        "->",
+                        partner.user.username
+                    );
+
+
                     partner.emit(
                         "incoming-call",
                         {
@@ -1172,7 +1535,9 @@ io.on(
 
 
                 if (!partner) {
+
                     return;
+
                 }
 
 
@@ -1204,10 +1569,8 @@ io.on(
                 partner.emit(
                     "call-answered",
                     {
-
                         answer:
                             data.answer
-
                     }
                 );
 
@@ -1216,7 +1579,7 @@ io.on(
 
 
         // ==================================
-        // ICE CANDIDATE
+        // ICE
         // ==================================
 
         socket.on(
@@ -1230,17 +1593,17 @@ io.on(
 
 
                 if (!partner) {
+
                     return;
+
                 }
 
 
                 partner.emit(
                     "ice-candidate",
                     {
-
                         candidate:
                             data.candidate
-
                     }
                 );
 
@@ -1305,7 +1668,6 @@ io.on(
 
                     partner.currentCallId =
                         null;
-
 
                     partner.emit(
                         "call-rejected"
@@ -1397,7 +1759,6 @@ io.on(
                     partner.currentCallId =
                         null;
 
-
                     partner.emit(
                         "call-ended"
                     );
@@ -1423,15 +1784,36 @@ io.on(
                 console.log(
                     "User disconnected:",
                     socket.user.username,
+                    socket.id,
                     reason
                 );
 
 
-                // Remove from waiting queue
+                // Remove active socket
+                const userKey =
+                    String(
+                        socket.user.id
+                    );
+
+
+                if (
+                    activeUserSockets.get(
+                        userKey
+                    ) === socket
+                ) {
+
+                    activeUserSockets.delete(
+                        userKey
+                    );
+
+                }
+
+
+                // Remove waiting user
                 if (
                     waitingUser &&
                     waitingUser.id ===
-                    socket.id
+                        socket.id
                 ) {
 
                     waitingUser =
@@ -1440,7 +1822,7 @@ io.on(
                 }
 
 
-                // End active call
+                // End call
                 if (
                     socket.currentCallId
                 ) {
@@ -1497,65 +1879,85 @@ io.on(
                     );
 
 
-                if (room) {
-
-                    room.active =
-                        false;
-
-                    room.videoCallActive =
-                        false;
-
-                    room.endedAt =
-                        Date.now();
-
+                if (!room) {
 
                     await db.write();
 
-
-                    const partner =
-                        getPartnerSocket(
-                            socket
-                        );
-
-
-                    if (partner) {
-
-                        partner.currentRoomId =
-                            null;
-
-                        partner.partnerSocketId =
-                            null;
-
-                        partner.partnerUserId =
-                            null;
-
-
-                        partner.leave(
-                            room.id
-                        );
-
-
-                        partner.emit(
-                            "partner-left",
-                            {
-                                reason:
-                                    "disconnected"
-                            }
-                        );
-
-
-                        findPartner(
-                            partner
-                        );
-
-                    }
-
-
-                    socket.currentRoomId =
-                        null;
+                    return;
 
                 }
 
+
+                const partner =
+                    getPartnerSocket(
+                        socket
+                    );
+
+
+                room.active =
+                    false;
+
+                room.videoCallActive =
+                    false;
+
+                room.endedAt =
+                    Date.now();
+
+
+                socket.currentRoomId =
+                    null;
+
+                socket.partnerSocketId =
+                    null;
+
+                socket.partnerUserId =
+                    null;
+
+
+                if (partner) {
+
+                    partner.leave(
+                        room.id
+                    );
+
+                    partner.currentRoomId =
+                        null;
+
+                    partner.partnerSocketId =
+                        null;
+
+                    partner.partnerUserId =
+                        null;
+
+                    partner.currentCallId =
+                        null;
+
+
+                    partner.emit(
+                        "partner-left",
+                        {
+                            reason:
+                                "disconnected"
+                        }
+                    );
+
+                }
+
+
+                await db.write();
+
+
+                // Find a new partner
+                if (
+                    partner &&
+                    partner.connected
+                ) {
+
+                    await findPartner(
+                        partner
+                    );
+
+                }
 
             }
         );
@@ -1584,24 +1986,18 @@ async function startServer() {
                 console.log(
                     "================================"
                 );
-
                 console.log(
                     " NICHE Connect Server"
                 );
-
                 console.log(
                     "================================"
                 );
-
                 console.log(
                     `Server running on port ${PORT}`
                 );
-
                 console.log(
-                    "Local:",
-                    `http://localhost:${PORT}`
+                    `Local: http://localhost:${PORT}`
                 );
-
                 console.log(
                     "================================"
                 );
