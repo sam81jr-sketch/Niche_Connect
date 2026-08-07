@@ -1,6 +1,7 @@
 // ==========================================
-// CAMPUSCHAT CHAT.JS
+// NICHE CONNECT - CHAT.JS
 // ==========================================
+
 
 // ==========================================
 // LOGIN
@@ -13,17 +14,31 @@ const savedUser =
     localStorage.getItem("campuschat_user");
 
 if (!token || !savedUser) {
+
     window.location.href = "/login.html";
-    throw new Error("User is not logged in.");
+
+    throw new Error(
+        "User is not logged in."
+    );
 }
+
 
 let user;
 
 try {
-    user = JSON.parse(savedUser);
+
+    user =
+        JSON.parse(savedUser);
+
 } catch (error) {
-    localStorage.removeItem("campuschat_user");
-    window.location.href = "/login.html";
+
+    localStorage.removeItem(
+        "campuschat_user"
+    );
+
+    window.location.href =
+        "/login.html";
+
     throw error;
 }
 
@@ -41,9 +56,11 @@ const myUsername =
 // ==========================================
 
 const socket = io({
+
     auth: {
         token: token
     }
+
 });
 
 
@@ -52,17 +69,131 @@ const socket = io({
 // ==========================================
 
 let currentPartner = null;
+
 let connectedToPartner = false;
 
 
 // ==========================================
-// UPDATE PARTNER
+// PARTNER STORAGE
+// ==========================================
+
+function savePartner(partner) {
+
+    if (!partner) {
+
+        sessionStorage.removeItem(
+            "campuschat_partner"
+        );
+
+        window.currentPartnerUserId =
+            null;
+
+        return;
+    }
+
+
+    sessionStorage.setItem(
+        "campuschat_partner",
+        JSON.stringify(partner)
+    );
+
+
+    window.currentPartnerUserId =
+        partner.id;
+}
+
+
+function clearPartner() {
+
+    currentPartner =
+        null;
+
+    connectedToPartner =
+        false;
+
+
+    sessionStorage.removeItem(
+        "campuschat_partner"
+    );
+
+
+    window.currentPartnerUserId =
+        null;
+}
+
+
+// ==========================================
+// RESTORE PARTNER
+// ==========================================
+
+function restorePartner() {
+
+    try {
+
+        const savedPartner =
+            sessionStorage.getItem(
+                "campuschat_partner"
+            );
+
+
+        if (!savedPartner) {
+            return null;
+        }
+
+
+        const partner =
+            JSON.parse(savedPartner);
+
+
+        if (
+            !partner ||
+            !partner.id ||
+            !partner.username
+        ) {
+
+            sessionStorage.removeItem(
+                "campuschat_partner"
+            );
+
+            return null;
+        }
+
+
+        currentPartner =
+            partner;
+
+        connectedToPartner =
+            true;
+
+        window.currentPartnerUserId =
+            partner.id;
+
+
+        return partner;
+
+    } catch (error) {
+
+        console.error(
+            "Unable to restore partner:",
+            error
+        );
+
+
+        sessionStorage.removeItem(
+            "campuschat_partner"
+        );
+
+
+        return null;
+    }
+}
+
+
+// ==========================================
+// UPDATE PARTNER UI
 // ==========================================
 
 function setChatPartner(username) {
-
-    currentPartner =
-        username || null;
 
     const topPartner =
         document.getElementById(
@@ -74,17 +205,28 @@ function setChatPartner(username) {
             "partnerUsername"
         );
 
+
     if (username) {
 
         if (topPartner) {
-            topPartner.textContent = username;
+
+            topPartner.textContent =
+                username;
+
         }
+
 
         if (headerPartner) {
-            headerPartner.textContent = username;
+
+            headerPartner.textContent =
+                username;
+
         }
 
-        connectedToPartner = true;
+
+        connectedToPartner =
+            true;
+
 
         updateEmptyState(
             true,
@@ -94,18 +236,28 @@ function setChatPartner(username) {
     } else {
 
         if (topPartner) {
+
             topPartner.textContent =
                 "Finding someone...";
+
         }
+
 
         if (headerPartner) {
+
             headerPartner.textContent =
                 "Finding someone...";
+
         }
 
-        connectedToPartner = false;
 
-        updateEmptyState(false);
+        connectedToPartner =
+            false;
+
+
+        updateEmptyState(
+            false
+        );
     }
 }
 
@@ -124,19 +276,23 @@ function updateEmptyState(
             "emptyTitle"
         );
 
+
     const text =
         document.getElementById(
             "emptyText"
         );
 
+
     if (!title || !text) {
         return;
     }
+
 
     if (connected) {
 
         title.textContent =
             `You're connected with ${partnerName}`;
+
 
         text.textContent =
             "Send a message to start chatting.";
@@ -145,6 +301,7 @@ function updateEmptyState(
 
         title.textContent =
             "Finding someone...";
+
 
         text.textContent =
             "Please wait while we connect you with another student.";
@@ -156,7 +313,20 @@ function updateEmptyState(
 // INITIAL STATE
 // ==========================================
 
-setChatPartner(null);
+const restoredPartner =
+    restorePartner();
+
+
+if (restoredPartner) {
+
+    setChatPartner(
+        restoredPartner.username
+    );
+
+} else {
+
+    setChatPartner(null);
+}
 
 
 // ==========================================
@@ -170,45 +340,61 @@ function displayMessage(data) {
             "messages"
         );
 
+
     if (!container) {
         return;
     }
+
 
     const emptyState =
         document.getElementById(
             "emptyState"
         );
 
+
     if (emptyState) {
         emptyState.remove();
     }
 
+
     const message =
         document.createElement("div");
 
+
     message.className =
         "message";
+
 
     if (
         String(data.userId) ===
         String(user.id)
     ) {
 
-        message.classList.add("mine");
+        message.classList.add(
+            "mine"
+        );
     }
+
 
     const name =
         document.createElement("div");
 
-    name.className = "name";
+
+    name.className =
+        "name";
+
 
     name.textContent =
         data.username || "User";
 
+
     const time =
         document.createElement("span");
 
-    time.className = "time";
+
+    time.className =
+        "time";
+
 
     if (data.time) {
 
@@ -224,47 +410,79 @@ function displayMessage(data) {
             );
     }
 
-    name.appendChild(time);
+
+    name.appendChild(
+        time
+    );
+
 
     const text =
         document.createElement("div");
 
-    text.className = "text";
+
+    text.className =
+        "text";
+
 
     text.textContent =
         data.message || "";
 
-    message.appendChild(name);
-    message.appendChild(text);
 
-    // Report other user's message
+    message.appendChild(
+        name
+    );
+
+
+    message.appendChild(
+        text
+    );
+
+
+    // ======================================
+    // REPORT OTHER USER'S MESSAGE
+    // ======================================
+
     if (
         String(data.userId) !==
         String(user.id)
     ) {
 
         const reportButton =
-            document.createElement("button");
+            document.createElement(
+                "button"
+            );
+
 
         reportButton.className =
             "reportButton";
 
+
         reportButton.textContent =
             "🚨 Report";
+
 
         reportButton.addEventListener(
             "click",
             () => {
-                reportMessage(data.id);
+
+                reportMessage(
+                    data.id
+                );
+
             }
         );
+
 
         message.appendChild(
             reportButton
         );
     }
 
-    container.appendChild(message);
+
+    container.appendChild(
+        message
+    );
+
 
     container.scrollTop =
         container.scrollHeight;
@@ -284,11 +502,15 @@ socket.on(
                 "messages"
             );
 
+
         if (!container) {
             return;
         }
 
-        container.innerHTML = "";
+
+        container.innerHTML =
+            "";
+
 
         if (
             !messages ||
@@ -306,7 +528,7 @@ socket.on(
                     <h3 id="emptyTitle">
                         ${
                             currentPartner
-                            ? `You're connected with ${currentPartner}`
+                            ? `You're connected with ${escapeHTML(currentPartner.username)}`
                             : "Finding someone..."
                         }
                     </h3>
@@ -326,11 +548,17 @@ socket.on(
             return;
         }
 
+
         messages.forEach(
             message => {
-                displayMessage(message);
+
+                displayMessage(
+                    message
+                );
+
             }
         );
+
     }
 );
 
@@ -343,7 +571,9 @@ socket.on(
     "chatMessage",
     data => {
 
-        displayMessage(data);
+        displayMessage(
+            data
+        );
 
     }
 );
@@ -360,16 +590,20 @@ function sendMessage() {
             "messageInput"
         );
 
+
     if (!input) {
         return;
     }
 
+
     const message =
         input.value.trim();
+
 
     if (!message) {
         return;
     }
+
 
     if (!connectedToPartner) {
 
@@ -380,6 +614,7 @@ function sendMessage() {
         return;
     }
 
+
     socket.emit(
         "chatMessage",
         {
@@ -387,7 +622,10 @@ function sendMessage() {
         }
     );
 
-    input.value = "";
+
+    input.value =
+        "";
+
 
     input.focus();
 }
@@ -401,6 +639,7 @@ const messageInput =
     document.getElementById(
         "messageInput"
     );
+
 
 if (messageInput) {
 
@@ -416,7 +655,9 @@ if (messageInput) {
                 event.preventDefault();
 
                 sendMessage();
+
             }
+
         }
     );
 }
@@ -430,14 +671,16 @@ socket.on(
     "chatError",
     message => {
 
-        alert(message);
+        alert(
+            message
+        );
 
     }
 );
 
 
 // ==========================================
-// CONNECTION
+// SOCKET CONNECTION
 // ==========================================
 
 socket.on(
@@ -449,7 +692,7 @@ socket.on(
             socket.id
         );
 
-        // Ask server for current room
+
         socket.emit(
             "getCurrentRoom"
         );
@@ -471,6 +714,7 @@ socket.on(
             error.message
         );
 
+
         if (
             error.message ===
                 "Authentication required" ||
@@ -483,23 +727,25 @@ socket.on(
                 "campuschat_token"
             );
 
+
             localStorage.removeItem(
                 "campuschat_user"
             );
 
+
+            clearPartner();
+
+
             window.location.href =
                 "/login.html";
         }
+
     }
 );
 
 
 // ==========================================
 // MATCHED
-// ==========================================
-// IMPORTANT:
-// This matches server.js:
-// socket.emit("matched", {...})
 // ==========================================
 
 socket.on(
@@ -511,34 +757,67 @@ socket.on(
             data
         );
 
+
         if (
             !data ||
-            !data.partner
+            !data.partner ||
+            !data.partner.id
         ) {
 
-            setChatPartner(null);
+            clearPartner();
+
+            setChatPartner(
+                null
+            );
 
             return;
         }
 
-        // Save partner information
+
+        // ==================================
+        // SAVE COMPLETE PARTNER OBJECT
+        // ==================================
+
         currentPartner = {
-            id: data.partner.id,
-            username: data.partner.username
+
+            id:
+                data.partner.id,
+
+            username:
+                data.partner.username
+
         };
 
-        // Used by video call
-        window.currentPartnerUserId =
-            data.partner.id;
+
+        // ==================================
+        // SAVE FOR VIDEO.JS
+        // ==================================
+
+        savePartner(
+            currentPartner
+        );
+
+
+        // ==================================
+        // UPDATE CHAT UI
+        // ==================================
 
         setChatPartner(
-            data.partner.username
+            currentPartner.username
         );
+
+
+        console.log(
+            "Video partner ID:",
+            window.currentPartnerUserId
+        );
+
 
         const container =
             document.getElementById(
                 "messages"
             );
+
 
         if (container) {
 
@@ -553,7 +832,7 @@ socket.on(
                     <h3 id="emptyTitle">
                         You're connected with
                         ${escapeHTML(
-                            data.partner.username
+                            currentPartner.username
                         )}
                     </h3>
 
@@ -583,10 +862,13 @@ socket.on(
             data
         );
 
-        setChatPartner(null);
 
-        window.currentPartnerUserId =
-            null;
+        clearPartner();
+
+
+        setChatPartner(
+            null
+        );
 
     }
 );
@@ -594,9 +876,6 @@ socket.on(
 
 // ==========================================
 // PARTNER LEFT
-// ==========================================
-// Server sends:
-// "partner-left"
 // ==========================================
 
 socket.on(
@@ -608,15 +887,42 @@ socket.on(
             data
         );
 
-        setChatPartner(null);
 
-        window.currentPartnerUserId =
-            null;
+        // End video call if active
+        if (
+            typeof endVideoCall ===
+            "function"
+        ) {
+
+            try {
+
+                endVideoCall();
+
+            } catch (error) {
+
+                console.log(
+                    "Video cleanup:",
+                    error
+                );
+
+            }
+
+        }
+
+
+        clearPartner();
+
+
+        setChatPartner(
+            null
+        );
+
 
         const container =
             document.getElementById(
                 "messages"
             );
+
 
         if (container) {
 
@@ -640,6 +946,7 @@ socket.on(
                 </div>
 
             `;
+
         }
 
     }
@@ -659,10 +966,58 @@ socket.on(
             data
         );
 
-        setChatPartner(null);
 
-        window.currentPartnerUserId =
-            null;
+        if (
+            typeof endVideoCall ===
+            "function"
+        ) {
+
+            try {
+
+                endVideoCall();
+
+            } catch (error) {
+
+                console.log(
+                    "Video cleanup:",
+                    error
+                );
+
+            }
+
+        }
+
+
+        clearPartner();
+
+
+        setChatPartner(
+            null
+        );
+
+    }
+);
+
+
+// ==========================================
+// NO ROOM
+// ==========================================
+
+socket.on(
+    "noRoom",
+    () => {
+
+        console.log(
+            "No current room."
+        );
+
+
+        clearPartner();
+
+
+        setChatPartner(
+            null
+        );
 
     }
 );
@@ -675,17 +1030,26 @@ socket.on(
 function skipUser() {
 
     if (!connectedToPartner) {
+
         return;
     }
+
 
     const confirmed =
         confirm(
             "Skip this user and find someone new?"
         );
 
+
     if (!confirmed) {
+
         return;
     }
+
+
+    // ======================================
+    // END VIDEO FIRST
+    // ======================================
 
     if (
         typeof endVideoCall ===
@@ -693,30 +1057,47 @@ function skipUser() {
     ) {
 
         try {
+
             endVideoCall();
+
         } catch (error) {
+
             console.log(
                 "Video call cleanup:",
                 error
             );
+
         }
+
     }
 
-    // IMPORTANT:
-    // Server listens for "skipUser"
+
+    // ======================================
+    // CLEAR PARTNER
+    // ======================================
+
+    clearPartner();
+
+
+    setChatPartner(
+        null
+    );
+
+
+    // ======================================
+    // TELL SERVER
+    // ======================================
+
     socket.emit(
         "skipUser"
     );
 
-    setChatPartner(null);
-
-    window.currentPartnerUserId =
-        null;
 
     const container =
         document.getElementById(
             "messages"
         );
+
 
     if (container) {
 
@@ -739,7 +1120,9 @@ function skipUser() {
             </div>
 
         `;
+
     }
+
 }
 
 
@@ -760,17 +1143,21 @@ async function reportMessage(
         return;
     }
 
+
     const reason =
         prompt(
             "Why are you reporting this message?"
         );
 
+
     if (
         !reason ||
         !reason.trim()
     ) {
+
         return;
     }
+
 
     try {
 
@@ -778,34 +1165,44 @@ async function reportMessage(
             await fetch(
                 "/api/reports",
                 {
-                    method: "POST",
+
+                    method:
+                        "POST",
 
                     headers: {
+
                         "Content-Type":
                             "application/json",
 
                         "Authorization":
                             `Bearer ${token}`
+
                     },
 
                     body:
                         JSON.stringify({
+
                             messageId:
                                 messageId,
 
                             reason:
                                 reason.trim()
+
                         })
+
                 }
             );
 
+
         const result =
             await response.json();
+
 
         alert(
             result.message ||
             "Report submitted."
         );
+
 
     } catch (error) {
 
@@ -814,10 +1211,13 @@ async function reportMessage(
             error
         );
 
+
         alert(
             "Unable to submit report."
         );
+
     }
+
 }
 
 
@@ -828,12 +1228,16 @@ async function reportMessage(
 function escapeHTML(value) {
 
     const div =
-        document.createElement("div");
+        document.createElement(
+            "div"
+        );
+
 
     div.textContent =
         value == null
             ? ""
             : String(value);
+
 
     return div.innerHTML;
 }
@@ -845,7 +1249,19 @@ function escapeHTML(value) {
 
 function startVideoCall() {
 
-    if (!currentPartner) {
+    console.log(
+        "Starting video call..."
+    );
+
+
+    // ======================================
+    // CHECK PARTNER
+    // ======================================
+
+    if (
+        !currentPartner ||
+        !currentPartner.id
+    ) {
 
         alert(
             "You are not connected to another user."
@@ -854,90 +1270,6 @@ function startVideoCall() {
         return;
     }
 
-    if (
-        typeof callUser !==
-        "function"
-    ) {
 
-        alert(
-            "Video call module is not loaded."
-        );
-
-        return;
-    }
-
-    if (
-        !window.currentPartnerUserId
-    ) {
-
-        alert(
-            "Unable to find the connected user's ID."
-        );
-
-        return;
-    }
-
-    callUser(
-        window.currentPartnerUserId,
-        "video"
-    );
-}
-
-
-// ==========================================
-// LOGOUT
-// ==========================================
-
-function logout() {
-
-    if (
-        typeof endVideoCall ===
-        "function"
-    ) {
-
-        try {
-            endVideoCall();
-        } catch (error) {
-            console.log(
-                "Video cleanup:",
-                error
-            );
-        }
-    }
-
-    socket.disconnect();
-
-    localStorage.removeItem(
-        "campuschat_token"
-    );
-
-    localStorage.removeItem(
-        "campuschat_user"
-    );
-
-    window.location.href =
-        "/login.html";
-}
-
-
-// ==========================================
-// EXPORT
-// ==========================================
-
-window.sendMessage =
-    sendMessage;
-
-window.skipUser =
-    skipUser;
-
-window.logout =
-    logout;
-
-window.reportMessage =
-    reportMessage;
-
-window.setChatPartner =
-    setChatPartner;
-
-window.startVideoCall =
-    startVideoCall;
+    // ======================================
+    // CHEC
