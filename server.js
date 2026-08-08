@@ -16,19 +16,29 @@ const { addStrike, isBanned } = require("./services/banService");
 
 const app = express();
 
-const sslOptions = {
-    key: fs.readFileSync(path.join(__dirname, "key.pem")),
-    cert: fs.readFileSync(path.join(__dirname, "cert.pem"))
-};
+let server;
 
-const server = https.createServer(sslOptions, app);
+if (process.env.RENDER) {
 
-const io = new Server(server, {
-    cors: {
-        origin: "*",
-        methods: ["GET", "POST"]
-    }
-});
+    server = require("http").createServer(app);
+
+} else {
+
+    const sslOptions = {
+        key: fs.readFileSync(
+            path.join(__dirname, "key.pem")
+        ),
+
+        cert: fs.readFileSync(
+            path.join(__dirname, "cert.pem")
+        )
+    };
+
+    server = https.createServer(
+        sslOptions,
+        app
+    );
+}
 
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET;
