@@ -1,2023 +1,745 @@
 const express = require("express");
-const http = require("http");
+const https = require("https");
+const fs = require("fs");
 const path = require("path");
 const jwt = require("jsonwebtoken");
 const { Server } = require("socket.io");
 
-const {
-    db,
-    initDatabase
-} = require("./database/database");
+const { db, initDatabase } = require("./database/database");
+const authRoutes = require("./routes/auth");
+const reportRoutes = require("./routes/reports");
+const adminRoutes = require("./routes/admin");
+const adminLoginRoutes = require("./routes/adminLogin");
 
-const authRoutes =
-    require("./routes/auth");
-
-const reportRoutes =
-    require("./routes/reports");
-
-const adminRoutes =
-    require("./routes/admin");
-
-const adminLoginRoutes =
-    require("./routes/adminLogin");
-
-const {
-    containsBlockedWord
-} = require("./services/moderation");
-
-const {
-    addStrike,
-    isBanned
-} = require("./services/banService");
-
-
-// ==========================================
-// APP
-// ==========================================
+const { containsBlockedWord } = require("./services/moderation");
+const { addStrike, isBanned } = require("./services/banService");
 
 const app = express();
 
-const server =
-    http.createServer(app);
+const sslOptions = {
+    key: fs.readFileSync(path.join(__dirname, "key.pem")),
+    cert: fs.readFileSync(path.join(__dirname, "cert.pem"))
+};
 
+const server = https.createServer(sslOptions, app);
 
-// ==========================================
-// SOCKET.IO
-// ==========================================
+const io = new Server(server, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    }
+});
 
-const io =
-    new Server(server, {
-        cors: {
-            origin: "*",
-            methods: ["GET", "POST"]
-        },
-        transports: ["websocket", "polling"]
-    });
-
-
-// ==========================================
-// PORT
-// ==========================================
-
-const PORT =
-    process.env.PORT || 3000;
-
-
-// ==========================================
-// JWT
-// ==========================================
-
-const JWT_SECRET =
-    process.env.JWT_SECRET;
+const PORT = process.env.PORT || 3000;
+const JWT_SECRET = process.env.JWT_SECRET;
 
 if (!JWT_SECRET) {
-    throw new Error(
-        "JWT_SECRET environment variable is required."
+    throw new Error("JWT_SECRET environment variable is required.");
+}
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+app.use(express.static(path.join(__dirname, "public")));
+
+app.use("/api/auth", authRoutes);
+app.use("/api/reports", reportRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/admin-auth", adminLoginRoutes);
+
+app.get("/", (req, res) => {
+    res.sendFile(path.join(__dirname, "public", "chat.html"));
+});
+
+app.get("/api/status", (req, res) => {
+    res.json({
+        status: "online",
+        application: "NICHE Connect",
+        database: "connected",
+        https: true,
+        time: new Date().toISOString()
+    });
+});
+
+let waitingUser = null;
+const connectedUsers = new Map();
+
+io.use((socket, next) => {
+    try {
+        const token =
+            socket.handshake.auth &&
+            socket.handshake.auth.token;
+
+        if (!token) {
+            return next(new Error("Authentication required"));
+        }
+
+        const decoded = jwt.verify(token, JWT_SECRET);
+        socket.user = decoded;
+
+        next();
+    } catch (error) {
+        console.log(
+            "Socket authentication failed:",
+            error.message
+        );
+
+        next(new Error("Invalid authentication token"));
+    }
+});
+
+function createCallId() {
+    return (
+        "call_" +
+        Date.now() +
+        "_" +
+        Math.random().toString(36).substring(2, 10)
     );
 }
 
-
-// ==========================================
-// MIDDLEWARE
-// ==========================================
-
-app.use(
-    express.json()
-);
-
-app.use(
-    express.urlencoded({
-        extended: true
-    })
-);
-
-
-// ==========================================
-// STATIC FILES
-// ==========================================
-
-app.use(
-    express.static(
-        path.join(
-            __dirname,
-            "public"
-        )
-    )
-);
-
-
-// ==========================================
-// API ROUTES
-// ==========================================
-
-app.use(
-    "/api/auth",
-    authRoutes
-);
-
-app.use(
-    "/api/reports",
-    reportRoutes
-);
-
-app.use(
-    "/api/admin",
-    adminRoutes
-);
-
-app.use(
-    "/api/admin-auth",
-    adminLoginRoutes
-);
-
-
-// ==========================================
-// STATUS
-// ==========================================
-
-app.get(
-    "/api/status",
-    (req, res) => {
-
-        res.json({
-            status: "online",
-            application: "NICHE Connect",
-            database: "connected",
-            time: new Date().toISOString()
-        });
-
-    }
-);
-
-
-// ==========================================
-// MATCHING
-// ==========================================
-
-// Only ONE socket waits here.
-let waitingUser = null;
-
-
-// Keep track of active sockets by user ID.
-// This prevents the same account from being
-// matched with itself through multiple tabs.
-const activeUserSockets = new Map();
-
-
-// ==========================================
-// SOCKET AUTHENTICATION
-// ==========================================
-
-io.use(
-    (socket, next) => {
-
-        try {
-
-            const token =
-                socket.handshake.auth &&
-                socket.handshake.auth.token;
-
-            if (!token) {
-
-                return next(
-                    new Error(
-                        "Authentication required"
-                    )
-                );
-
-            }
-
-            const decoded =
-                jwt.verify(
-                    token,
-                    JWT_SECRET
-                );
-
-            if (
-                !decoded ||
-                !decoded.id ||
-                !decoded.username
-            ) {
-
-                return next(
-                    new Error(
-                        "Invalid authentication token"
-                    )
-                );
-
-            }
-
-            socket.user =
-                decoded;
-
-            next();
-
-        } catch (error) {
-
-            console.error(
-                "Socket authentication failed:",
-                error.message
-            );
-
-            next(
-                new Error(
-                    "Invalid authentication token"
-                )
-            );
-
-        }
-
-    }
-);
-
-
-// ==========================================
-// CREATE ROOM
-// ==========================================
-
-async function createRoom(
-    socketA,
-    socketB
-) {
-
+async function createRoom(socketA, socketB) {
     const roomId =
         "room_" +
         Date.now() +
         "_" +
-        Math.random()
-            .toString(36)
-            .substring(2, 8);
+        Math.random().toString(36).substring(2, 8);
 
     const room = {
-
         id: roomId,
-
-        user1Id:
-            socketA.user.id,
-
-        user1Username:
-            socketA.user.username,
-
-        user2Id:
-            socketB.user.id,
-
-        user2Username:
-            socketB.user.username,
-
+        user1Id: socketA.user.id,
+        user1Username: socketA.user.username,
+        user2Id: socketB.user.id,
+        user2Username: socketB.user.username,
         active: true,
-
         videoCallActive: false,
-
-        createdAt:
-            Date.now(),
-
+        activeCallId: null,
+        createdAt: Date.now(),
         endedAt: null
-
     };
 
-
-    if (
-        !Array.isArray(
-            db.data.rooms
-        )
-    ) {
-
+    if (!Array.isArray(db.data.rooms)) {
         db.data.rooms = [];
-
     }
 
+    db.data.rooms.push(room);
 
-    db.data.rooms.push(
-        room
-    );
+    socketA.currentRoomId = roomId;
+    socketB.currentRoomId = roomId;
 
+    socketA.partnerSocketId = socketB.id;
+    socketB.partnerSocketId = socketA.id;
 
-    socketA.currentRoomId =
-        roomId;
+    socketA.partnerUserId = socketB.user.id;
+    socketB.partnerUserId = socketA.user.id;
 
-    socketB.currentRoomId =
-        roomId;
-
-
-    socketA.partnerSocketId =
-        socketB.id;
-
-    socketB.partnerSocketId =
-        socketA.id;
-
-
-    socketA.partnerUserId =
-        socketB.user.id;
-
-    socketB.partnerUserId =
-        socketA.user.id;
-
-
-    socketA.join(
-        roomId
-    );
-
-    socketB.join(
-        roomId
-    );
-
+    socketA.join(roomId);
+    socketB.join(roomId);
 
     await db.write();
-
-
-    console.log(
-        "ROOM READY:",
-        roomId,
-        "|",
-        socketA.user.username,
-        "<->",
-        socketB.user.username
-    );
-
 
     return room;
-
 }
-
-
-// ==========================================
-// GET ROOM
-// ==========================================
 
 function getUserRoom(socket) {
-
-    if (
-        !socket.currentRoomId
-    ) {
-
+    if (!socket.currentRoomId) {
         return null;
-
     }
 
-
-    return (
-        db.data.rooms || []
-    ).find(
-        room =>
-            room.id ===
-            socket.currentRoomId
-    );
-
+    return (db.data.rooms || []).find(
+        room => room.id === socket.currentRoomId
+    ) || null;
 }
-
-
-// ==========================================
-// GET PARTNER
-// ==========================================
 
 function getPartnerSocket(socket) {
-
-    if (
-        !socket.partnerSocketId
-    ) {
-
+    if (!socket.partnerSocketId) {
         return null;
-
     }
 
-
-    const partner =
-        io.sockets.sockets.get(
-            socket.partnerSocketId
-        );
-
-
-    if (
-        !partner ||
-        !partner.connected
-    ) {
-
-        return null;
-
-    }
-
-
-    return partner;
-
+    return io.sockets.sockets.get(socket.partnerSocketId) || null;
 }
 
-
-// ==========================================
-// SEND WAITING
-// ==========================================
-
-function sendWaiting(socket) {
-
-    if (
-        !socket ||
-        !socket.connected
-    ) {
-
+function findPartner(socket) {
+    if (!socket.connected || socket.currentRoomId) {
         return;
-
     }
 
-
-    socket.emit(
-        "waiting",
-        {
-            message:
-                "Waiting for a new user..."
-        }
-    );
-
-
-    console.log(
-        socket.user.username,
-        "is waiting"
-    );
-
-}
-
-
-// ==========================================
-// FIND PARTNER
-// ==========================================
-
-async function findPartner(socket) {
-
-    if (
-        !socket ||
-        !socket.connected
-    ) {
-
+    if (waitingUser && waitingUser.id === socket.id) {
         return;
-
     }
 
-
-    // Already matched
-    if (
-        socket.currentRoomId
-    ) {
-
-        return;
-
+    if (waitingUser && !waitingUser.connected) {
+        waitingUser = null;
     }
 
-
-    // Clean stale waiting socket
-    if (
-        waitingUser &&
-        !waitingUser.connected
-    ) {
-
-        waitingUser =
-            null;
-
-    }
-
-
-    // Already waiting
-    if (
-        waitingUser &&
-        waitingUser.id === socket.id
-    ) {
-
-        return;
-
-    }
-
-
-    // Nobody waiting
     if (!waitingUser) {
+        waitingUser = socket;
 
-        waitingUser =
-            socket;
+        socket.emit("waiting", {
+            message: "Waiting for another student..."
+        });
 
-        sendWaiting(
-            socket
-        );
-
+        console.log(socket.user.username, "is waiting");
         return;
-
     }
-
-
-    const partner =
-        waitingUser;
-
-
-    waitingUser =
-        null;
-
-
-    // Never match a user with himself
-    if (
-        String(
-            partner.user.id
-        ) ===
-        String(
-            socket.user.id
-        )
-    ) {
-
-        console.log(
-            "Same user attempted to match:",
-            socket.user.username
-        );
-
-
-        // Keep the newest socket waiting
-        if (
-            partner.connected
-        ) {
-
-            waitingUser =
-                partner;
-
-            sendWaiting(
-                socket
-            );
-
-        } else {
-
-            sendWaiting(
-                socket
-            );
-
-            waitingUser =
-                socket;
-
-        }
-
-        return;
-
-    }
-
 
     if (
-        !partner.connected
+        String(waitingUser.user.id) ===
+        String(socket.user.id)
     ) {
-
-        waitingUser =
-            socket;
-
-        sendWaiting(
-            socket
-        );
-
+        socket.emit("waiting", {
+            message: "Waiting for another student..."
+        });
         return;
-
     }
 
+    const partner = waitingUser;
+    waitingUser = null;
 
-    try {
+    if (!partner.connected) {
+        findPartner(socket);
+        return;
+    }
 
-        const room =
-            await createRoom(
-                partner,
-                socket
+    createRoom(partner, socket)
+        .then(room => {
+            console.log(
+                "Private room created:",
+                room.id
             );
 
-
-        partner.emit(
-            "matched",
-            {
-                roomId:
-                    room.id,
-
+            partner.emit("matched", {
+                roomId: room.id,
                 partner: {
-                    id:
-                        socket.user.id,
-
-                    username:
-                        socket.user.username
+                    id: socket.user.id,
+                    username: socket.user.username
                 }
-            }
-        );
+            });
 
-
-        socket.emit(
-            "matched",
-            {
-                roomId:
-                    room.id,
-
+            socket.emit("matched", {
+                roomId: room.id,
                 partner: {
-                    id:
-                        partner.user.id,
-
-                    username:
-                        partner.user.username
+                    id: partner.user.id,
+                    username: partner.user.username
                 }
+            });
+        })
+        .catch(error => {
+            console.error("Room creation error:", error);
+
+            if (
+                socket.connected &&
+                !socket.currentRoomId
+            ) {
+                findPartner(socket);
             }
-        );
-
-
-        console.log(
-            "MATCHED:",
-            partner.user.username,
-            "<->",
-            socket.user.username
-        );
-
-    } catch (error) {
-
-        console.error(
-            "Room creation error:",
-            error
-        );
-
-
-        if (
-            partner.connected
-        ) {
-
-            waitingUser =
-                partner;
-
-        }
-
-        sendWaiting(
-            socket
-        );
-
-    }
-
+        });
 }
 
-
-// ==========================================
-// END ROOM
-// ==========================================
-
-async function endRoom(
-    socket,
-    reason = "ended"
-) {
-
-    const room =
-        getUserRoom(
-            socket
-        );
-
+async function endRoom(socket, reason = "ended") {
+    const room = getUserRoom(socket);
 
     if (!room) {
-
         return;
-
     }
 
-
-    room.active =
-        false;
-
-    room.videoCallActive =
-        false;
-
-    room.endedAt =
-        Date.now();
-
-
-    const partner =
-        getPartnerSocket(
-            socket
-        );
-
-
-    socket.leave(
-        room.id
-    );
-
-
-    socket.currentRoomId =
-        null;
-
-    socket.partnerSocketId =
-        null;
-
-    socket.partnerUserId =
-        null;
-
-
-    if (partner) {
-
-        partner.leave(
-            room.id
-        );
-
-        partner.currentRoomId =
-            null;
-
-        partner.partnerSocketId =
-            null;
-
-        partner.partnerUserId =
-            null;
-
-        partner.currentCallId =
-            null;
-
-
-        partner.emit(
-            "partner-left",
-            {
-                reason:
-                    reason
-            }
-        );
-
-    }
-
+    room.active = false;
+    room.videoCallActive = false;
+    room.activeCallId = null;
+    room.endedAt = Date.now();
 
     await db.write();
 
+    const partner = getPartnerSocket(socket);
 
-    socket.emit(
-        "room-ended",
-        {
-            reason:
-                reason
-        }
-    );
+    if (partner) {
+        partner.currentRoomId = null;
+        partner.partnerSocketId = null;
+        partner.partnerUserId = null;
 
+        partner.leave(room.id);
 
-    // Find new partners after ending
-    if (
-        partner &&
-        partner.connected
-    ) {
+        partner.emit("partner-left", {
+            reason
+        });
 
-        await findPartner(
-            partner
-        );
-
+        findPartner(partner);
     }
 
+    socket.leave(room.id);
 
-    if (
-        socket.connected
-    ) {
+    socket.currentRoomId = null;
+    socket.partnerSocketId = null;
+    socket.partnerUserId = null;
 
-        await findPartner(
-            socket
-        );
-
-    }
-
+    socket.emit("room-ended", {
+        reason
+    });
 }
 
+io.on("connection", socket => {
+    console.log(
+        "User connected:",
+        socket.user.username,
+        socket.id
+    );
 
-// ==========================================
-// SOCKET CONNECTION
-// ==========================================
+    const userId = String(socket.user.id);
 
-io.on(
-    "connection",
-    async (socket) => {
+    if (connectedUsers.has(userId)) {
+        socket.emit("duplicate-login", {
+            message: "This account is already connected."
+        });
 
-        console.log(
-            "User connected:",
-            socket.user.username,
-            socket.id
-        );
+        socket.disconnect(true);
+        return;
+    }
 
+    connectedUsers.set(userId, socket.id);
 
-        socket.currentRoomId =
-            null;
+    socket.currentRoomId = null;
+    socket.partnerSocketId = null;
+    socket.partnerUserId = null;
 
-        socket.partnerSocketId =
-            null;
+    findPartner(socket);
 
-        socket.partnerUserId =
-            null;
+    socket.on("getCurrentRoom", () => {
+        const room = getUserRoom(socket);
 
-        socket.currentCallId =
-            null;
-
-
-        // ==================================
-        // DUPLICATE ACCOUNT CHECK
-        // ==================================
-
-        const userKey =
-            String(
-                socket.user.id
-            );
-
-
-        const oldSocket =
-            activeUserSockets.get(
-                userKey
-            );
-
-
-        if (
-            oldSocket &&
-            oldSocket.id !== socket.id &&
-            oldSocket.connected
-        ) {
-
-            console.log(
-                "Duplicate connection rejected:",
-                socket.user.username
-            );
-
-
-            socket.emit(
-                "duplicate-connection",
-                {
-                    message:
-                        "This account is already connected in another tab or device."
-                }
-            );
-
-
-            socket.disconnect(
-                true
-            );
-
-
+        if (!room || !room.active) {
+            socket.emit("noRoom");
             return;
-
         }
 
+        const partner = getPartnerSocket(socket);
 
-        activeUserSockets.set(
-            userKey,
-            socket
-        );
-
-
-        // ==================================
-        // FIND MATCH
-        // ==================================
-
-        await findPartner(
-            socket
-        );
-
-
-        // ==================================
-        // CURRENT ROOM
-        // ==================================
-
-        socket.on(
-            "getCurrentRoom",
-            () => {
-
-                const room =
-                    getUserRoom(
-                        socket
-                    );
-
-
-                if (
-                    !room ||
-                    !room.active
-                ) {
-
-                    socket.emit(
-                        "noRoom"
-                    );
-
-                    return;
-
+        socket.emit("matched", {
+            roomId: room.id,
+            partner: partner
+                ? {
+                    id: partner.user.id,
+                    username: partner.user.username
                 }
+                : null
+        });
 
-
-                const partner =
-                    getPartnerSocket(
-                        socket
-                    );
-
-
-                if (!partner) {
-
-                    socket.emit(
-                        "noRoom"
-                    );
-
-                    return;
-
-                }
-
-
-                socket.emit(
-                    "matched",
-                    {
-
-                        roomId:
-                            room.id,
-
-                        partner: {
-
-                            id:
-                                partner.user.id,
-
-                            username:
-                                partner.user.username
-
-                        }
-
-                    }
-                );
-
-
-                const messages =
-                    (
-                        db.data.messages ||
-                        []
-                    ).filter(
-                        message =>
-                            message.roomId ===
-                            room.id
-                    );
-
-
-                socket.emit(
-                    "messageHistory",
-                    messages
-                );
-
-            }
+        const messages = (db.data.messages || []).filter(
+            message => message.roomId === room.id
         );
 
+        socket.emit("messageHistory", messages);
+    });
 
-        // ==================================
-        // SKIP USER
-        // ==================================
+    socket.on("skipUser", async () => {
+        await endRoom(socket, "skipped");
+        findPartner(socket);
+    });
 
-        socket.on(
-            "skipUser",
-            async () => {
-
-                console.log(
-                    "Skip:",
-                    socket.user.username
-                );
-
-
-                await endRoom(
-                    socket,
-                    "skipped"
-                );
-
+    socket.on("chatMessage", async data => {
+        try {
+            if (
+                !data ||
+                typeof data.message !== "string"
+            ) {
+                return;
             }
-        );
 
-
-        // ==================================
-        // CHAT MESSAGE
-        // ==================================
-
-        socket.on(
-            "chatMessage",
-            async (
-                data,
-                callback
-            ) => {
-
-                try {
-
-                    console.log(
-                        "CHAT MESSAGE RECEIVED:",
-                        socket.user.username,
-                        data
-                    );
-
-
-                    // Validate
-                    if (
-                        !data ||
-                        typeof data.message !==
-                            "string"
-                    ) {
-
-                        if (
-                            typeof callback ===
-                            "function"
-                        ) {
-
-                            callback({
-                                ok: false,
-                                error:
-                                    "Invalid message."
-                            });
-
-                        }
-
-                        return;
-
-                    }
-
-
-                    const text =
-                        data.message.trim();
-
-
-                    if (!text) {
-
-                        if (
-                            typeof callback ===
-                            "function"
-                        ) {
-
-                            callback({
-                                ok: false,
-                                error:
-                                    "Message cannot be empty."
-                            });
-
-                        }
-
-                        return;
-
-                    }
-
-
-                    if (
-                        text.length > 1000
-                    ) {
-
-                        socket.emit(
-                            "chatError",
-                            "Message is too long. Maximum 1000 characters."
-                        );
-
-                        return;
-
-                    }
-
-
-                    // ==================================
-                    // USER
-                    // ==================================
-
-                    const user =
-                        (
-                            db.data.users ||
-                            []
-                        ).find(
-                            u =>
-                                String(
-                                    u.id
-                                ) ===
-                                String(
-                                    socket.user.id
-                                )
-                        );
-
-
-                    if (!user) {
-
-                        socket.emit(
-                            "chatError",
-                            "User account not found."
-                        );
-
-                        return;
-
-                    }
-
-
-                    // ==================================
-                    // ROOM
-                    // ==================================
-
-                    const room =
-                        getUserRoom(
-                            socket
-                        );
-
-
-                    if (
-                        !room ||
-                        !room.active
-                    ) {
-
-                        socket.emit(
-                            "chatError",
-                            "You are not connected to a user."
-                        );
-
-                        return;
-
-                    }
-
-
-                    // ==================================
-                    // PARTNER
-                    // ==================================
-
-                    const partner =
-                        getPartnerSocket(
-                            socket
-                        );
-
-
-                    if (!partner) {
-
-                        socket.emit(
-                            "chatError",
-                            "Your chat partner is no longer connected."
-                        );
-
-                        return;
-
-                    }
-
-
-                    // Never allow accidental self-chat
-                    if (
-                        String(
-                            partner.user.id
-                        ) ===
-                        String(
-                            socket.user.id
-                        )
-                    ) {
-
-                        socket.emit(
-                            "chatError",
-                            "Invalid chat partner."
-                        );
-
-                        return;
-
-                    }
-
-
-                    // ==================================
-                    // BAN
-                    // ==================================
-
-                    if (
-                        isBanned(user)
-                    ) {
-
-                        await db.write();
-
-                        socket.emit(
-                            "chatError",
-                            "You are temporarily banned from chatting."
-                        );
-
-                        return;
-
-                    }
-
-
-                    // ==================================
-                    // MODERATION
-                    // ==================================
-
-                    if (
-                        containsBlockedWord(
-                            text
-                        )
-                    ) {
-
-                        const result =
-                            await addStrike(
-                                db,
-                                user.id
-                            );
-
-
-                        if (
-                            result &&
-                            result.bannedUntil
-                        ) {
-
-                            socket.emit(
-                                "chatError",
-                                "Message blocked. You have been temporarily banned after repeated violations."
-                            );
-
-                        } else {
-
-                            socket.emit(
-                                "chatError",
-                                `Message blocked. Warning ${result.strikes}/3.`
-                            );
-
-                        }
-
-                        return;
-
-                    }
-
-
-                    // ==================================
-                    // MESSAGE
-                    // ==================================
-
-                    const newMessage = {
-
-                        id:
-                            Date.now() +
-                            Math.floor(
-                                Math.random() *
-                                1000
-                            ),
-
-                        roomId:
-                            room.id,
-
-                        userId:
-                            user.id,
-
-                        username:
-                            user.username,
-
-                        message:
-                            text,
-
-                        time:
-                            Date.now()
-
-                    };
-
-
-                    if (
-                        !Array.isArray(
-                            db.data.messages
-                        )
-                    ) {
-
-                        db.data.messages =
-                            [];
-
-                    }
-
-
-                    db.data.messages.push(
-                        newMessage
-                    );
-
-
-                    if (
-                        db.data.messages.length >
-                        10000
-                    ) {
-
-                        db.data.messages =
-                            db.data.messages.slice(
-                                -10000
-                            );
-
-                    }
-
-
-                    await db.write();
-
-
-                    // ==================================
-                    // DIRECT DELIVERY
-                    // ==================================
-
-                    console.log(
-                        "DELIVERING MESSAGE:",
-                        socket.user.username,
-                        "->",
-                        partner.user.username,
-                        "| room:",
-                        room.id
-                    );
-
-
-                    // Send to sender
-                    socket.emit(
-                        "chatMessage",
-                        newMessage
-                    );
-
-
-                    // Send directly to partner
-                    partner.emit(
-                        "chatMessage",
-                        newMessage
-                    );
-
-
-                    console.log(
-                        "MESSAGE DELIVERED"
-                    );
-
-
-                    if (
-                        typeof callback ===
-                        "function"
-                    ) {
-
-                        callback({
-                            ok: true,
-                            messageId:
-                                newMessage.id
-                        });
-
-                    }
-
-                } catch (error) {
-
-                    console.error(
-                        "Chat message error:",
-                        error
-                    );
-
-
+            const text = data.message.trim();
+
+            if (!text) {
+                return;
+            }
+
+            if (text.length > 1000) {
+                socket.emit(
+                    "chatError",
+                    "Message is too long. Maximum 1000 characters."
+                );
+                return;
+            }
+
+            const user = (db.data.users || []).find(
+                u =>
+                    String(u.id) ===
+                    String(socket.user.id)
+            );
+
+            if (!user) {
+                socket.emit(
+                    "chatError",
+                    "User account not found."
+                );
+                return;
+            }
+
+            const room = getUserRoom(socket);
+
+            if (!room || !room.active) {
+                socket.emit(
+                    "chatError",
+                    "You are not connected to a user."
+                );
+                return;
+            }
+
+            if (isBanned(user)) {
+                socket.emit(
+                    "chatError",
+                    "You are temporarily banned from chatting."
+                );
+                return;
+            }
+
+            if (containsBlockedWord(text)) {
+                const result = await addStrike(
+                    db,
+                    user.id
+                );
+
+                if (result && result.bannedUntil) {
                     socket.emit(
                         "chatError",
-                        "Unable to send message."
+                        "Message blocked. You have been temporarily banned after repeated violations."
                     );
-
-
-                    if (
-                        typeof callback ===
-                        "function"
-                    ) {
-
-                        callback({
-                            ok: false,
-                            error:
-                                "Unable to send message."
-                        });
-
-                    }
-
-                }
-
-            }
-        );
-
-
-        // ==================================
-        // VIDEO CALL
-        // ==================================
-
-        socket.on(
-            "call-user",
-            async (data) => {
-
-                try {
-
-                    const partner =
-                        getPartnerSocket(
-                            socket
-                        );
-
-                    const room =
-                        getUserRoom(
-                            socket
-                        );
-
-
-                    if (
-                        !partner ||
-                        !room ||
-                        !room.active
-                    ) {
-
-                        socket.emit(
-                            "call-error",
-                            "You are not connected to a user."
-                        );
-
-                        return;
-
-                    }
-
-
-                    room.videoCallActive =
-                        true;
-
-
-                    const callId =
-                        "call_" +
-                        Date.now() +
-                        "_" +
-                        Math.random()
-                            .toString(36)
-                            .substring(2, 7);
-
-
-                    const call = {
-
-                        id:
-                            callId,
-
-                        roomId:
-                            room.id,
-
-                        callerId:
-                            socket.user.id,
-
-                        callerUsername:
-                            socket.user.username,
-
-                        receiverId:
-                            partner.user.id,
-
-                        receiverUsername:
-                            partner.user.username,
-
-                        type:
-                            data &&
-                            data.callType
-                                ? data.callType
-                                : "video",
-
-                        status:
-                            "ringing",
-
-                        startedAt:
-                            Date.now(),
-
-                        answeredAt:
-                            null,
-
-                        endedAt:
-                            null,
-
-                        duration:
-                            0
-
-                    };
-
-
-                    if (
-                        !Array.isArray(
-                            db.data.calls
-                        )
-                    ) {
-
-                        db.data.calls =
-                            [];
-
-                    }
-
-
-                    db.data.calls.push(
-                        call
-                    );
-
-
-                    await db.write();
-
-
-                    socket.currentCallId =
-                        callId;
-
-                    partner.currentCallId =
-                        callId;
-
-
-                    console.log(
-                        "VIDEO CALL:",
-                        socket.user.username,
-                        "->",
-                        partner.user.username
-                    );
-
-
-                    partner.emit(
-                        "incoming-call",
-                        {
-
-                            callId:
-                                callId,
-
-                            fromUserId:
-                                socket.user.id,
-
-                            fromUsername:
-                                socket.user.username,
-
-                            offer:
-                                data.offer,
-
-                            callType:
-                                data.callType ||
-                                "video"
-
-                        }
-                    );
-
-
-                } catch (error) {
-
-                    console.error(
-                        "Call start error:",
-                        error
-                    );
-
-
+                } else {
                     socket.emit(
-                        "call-error",
-                        "Unable to start video call."
+                        "chatError",
+                        `Message blocked. Warning ${result.strikes}/3.`
                     );
-
                 }
 
+                return;
             }
-        );
 
+            const newMessage = {
+                id:
+                    Date.now() +
+                    Math.floor(Math.random() * 1000),
+                roomId: room.id,
+                userId: user.id,
+                username: user.username,
+                message: text,
+                time: Date.now()
+            };
 
-        // ==================================
-        // ANSWER CALL
-        // ==================================
+            if (!Array.isArray(db.data.messages)) {
+                db.data.messages = [];
+            }
 
-        socket.on(
-            "answer-call",
-            async (data) => {
+            db.data.messages.push(newMessage);
 
-                const partner =
-                    getPartnerSocket(
-                        socket
-                    );
+            if (db.data.messages.length > 10000) {
+                db.data.messages =
+                    db.data.messages.slice(-10000);
+            }
 
+            await db.write();
 
-                if (!partner) {
+            io.to(room.id).emit(
+                "chatMessage",
+                newMessage
+            );
+        } catch (error) {
+            console.error(
+                "Chat message error:",
+                error
+            );
 
-                    return;
+            socket.emit(
+                "chatError",
+                "Unable to send message."
+            );
+        }
+    });
 
-                }
+    // ==========================================
+    // VIDEO CALL
+    // ==========================================
 
+    socket.on("call-user", async data => {
+        try {
+            const partner = getPartnerSocket(socket);
+            const room = getUserRoom(socket);
 
-                const call =
-                    (
-                        db.data.calls ||
-                        []
-                    ).find(
-                        item =>
-                            item.id ===
-                            socket.currentCallId
-                    );
-
-
-                if (call) {
-
-                    call.status =
-                        "active";
-
-                    call.answeredAt =
-                        Date.now();
-
-
-                    await db.write();
-
-                }
-
-
-                partner.emit(
-                    "call-answered",
-                    {
-                        answer:
-                            data.answer
-                    }
+            if (
+                !partner ||
+                !room ||
+                !room.active
+            ) {
+                socket.emit(
+                    "call-error",
+                    "You are not connected to a user."
                 );
-
+                return;
             }
+
+            const callId = createCallId();
+
+            room.videoCallActive = true;
+            room.activeCallId = callId;
+
+            await db.write();
+
+            partner.emit("incoming-call", {
+                callId,
+                callerId: socket.user.id,
+                callerUsername: socket.user.username,
+                callType:
+                    data && data.callType
+                        ? data.callType
+                        : "video"
+            });
+
+            console.log(
+                "Video call:",
+                socket.user.username,
+                "->",
+                partner.user.username,
+                callId
+            );
+        } catch (error) {
+            console.error(
+                "Video call error:",
+                error
+            );
+
+            socket.emit(
+                "call-error",
+                "Unable to start video call."
+            );
+        }
+    });
+
+    socket.on("answer-call", async data => {
+        const partner = getPartnerSocket(socket);
+        const room = getUserRoom(socket);
+
+        if (!partner || !room || !room.active) {
+            return;
+        }
+
+        if (
+            data &&
+            data.callId &&
+            room.activeCallId &&
+            data.callId !== room.activeCallId
+        ) {
+            return;
+        }
+
+        partner.emit("call-accepted", {
+            callId: room.activeCallId
+        });
+    });
+
+    // WebRTC signaling used by video.js
+    socket.on("offer", data => {
+        const partner = getPartnerSocket(socket);
+        const room = getUserRoom(socket);
+
+        if (
+            !partner ||
+            !room ||
+            !room.active ||
+            !data ||
+            !data.offer
+        ) {
+            return;
+        }
+
+        partner.emit("offer", {
+            callId:
+                data.callId ||
+                room.activeCallId,
+            callerId: socket.user.id,
+            userId: socket.user.id,
+            offer: data.offer
+        });
+    });
+
+    socket.on("answer", data => {
+        const partner = getPartnerSocket(socket);
+        const room = getUserRoom(socket);
+
+        if (
+            !partner ||
+            !room ||
+            !room.active ||
+            !data ||
+            !data.answer
+        ) {
+            return;
+        }
+
+        partner.emit("answer", {
+            callId:
+                data.callId ||
+                room.activeCallId,
+            answer: data.answer
+        });
+    });
+
+    socket.on("ice-candidate", data => {
+        const partner = getPartnerSocket(socket);
+        const room = getUserRoom(socket);
+
+        if (
+            !partner ||
+            !room ||
+            !room.active ||
+            !data ||
+            !data.candidate
+        ) {
+            return;
+        }
+
+        partner.emit("ice-candidate", {
+            callId:
+                data.callId ||
+                room.activeCallId,
+            candidate: data.candidate
+        });
+    });
+
+    socket.on("reject-call", async data => {
+        const partner = getPartnerSocket(socket);
+        const room = getUserRoom(socket);
+
+        if (room) {
+            room.videoCallActive = false;
+            room.activeCallId = null;
+            await db.write();
+        }
+
+        if (partner) {
+            partner.emit("call-rejected", {
+                callId: data && data.callId
+                    ? data.callId
+                    : null
+            });
+        }
+    });
+
+    socket.on("end-call", async data => {
+        const partner = getPartnerSocket(socket);
+        const room = getUserRoom(socket);
+
+        if (room) {
+            room.videoCallActive = false;
+            room.activeCallId = null;
+            await db.write();
+        }
+
+        if (partner) {
+            partner.emit("call-ended", {
+                callId: data && data.callId
+                    ? data.callId
+                    : null
+            });
+        }
+    });
+
+    socket.on("disconnect", async reason => {
+        console.log(
+            "User disconnected:",
+            socket.user.username,
+            reason
         );
 
+        if (
+            waitingUser &&
+            waitingUser.id === socket.id
+        ) {
+            waitingUser = null;
+        }
 
-        // ==================================
-        // ICE
-        // ==================================
+        const currentUserId =
+            String(socket.user.id);
 
-        socket.on(
-            "ice-candidate",
-            (data) => {
+        if (
+            connectedUsers.get(currentUserId) ===
+            socket.id
+        ) {
+            connectedUsers.delete(currentUserId);
+        }
 
-                const partner =
-                    getPartnerSocket(
-                        socket
-                    );
+        const partner = getPartnerSocket(socket);
+        const room = getUserRoom(socket);
 
+        if (room) {
+            room.active = false;
+            room.videoCallActive = false;
+            room.activeCallId = null;
+            room.endedAt = Date.now();
 
-                if (!partner) {
+            await db.write();
+        }
 
-                    return;
+        if (partner) {
+            partner.currentRoomId = null;
+            partner.partnerSocketId = null;
+            partner.partnerUserId = null;
 
-                }
-
-
-                partner.emit(
-                    "ice-candidate",
-                    {
-                        candidate:
-                            data.candidate
-                    }
-                );
-
+            if (room) {
+                partner.leave(room.id);
             }
-        );
 
+            partner.emit("call-ended", {
+                reason: "disconnected"
+            });
 
-        // ==================================
-        // REJECT CALL
-        // ==================================
+            partner.emit("partner-left", {
+                reason: "disconnected"
+            });
 
-        socket.on(
-            "reject-call",
-            async () => {
-
-                const partner =
-                    getPartnerSocket(
-                        socket
-                    );
-
-
-                const room =
-                    getUserRoom(
-                        socket
-                    );
-
-
-                if (room) {
-
-                    room.videoCallActive =
-                        false;
-
-                }
-
-
-                const call =
-                    (
-                        db.data.calls ||
-                        []
-                    ).find(
-                        item =>
-                            item.id ===
-                            socket.currentCallId
-                    );
-
-
-                if (call) {
-
-                    call.status =
-                        "rejected";
-
-                    call.endedAt =
-                        Date.now();
-
-                }
-
-
-                await db.write();
-
-
-                if (partner) {
-
-                    partner.currentCallId =
-                        null;
-
-                    partner.emit(
-                        "call-rejected"
-                    );
-
-                }
-
-
-                socket.currentCallId =
-                    null;
-
-            }
-        );
-
-
-        // ==================================
-        // HANG UP
-        // ==================================
-
-        socket.on(
-            "hang-up",
-            async () => {
-
-                const partner =
-                    getPartnerSocket(
-                        socket
-                    );
-
-
-                const room =
-                    getUserRoom(
-                        socket
-                    );
-
-
-                if (room) {
-
-                    room.videoCallActive =
-                        false;
-
-                }
-
-
-                const call =
-                    (
-                        db.data.calls ||
-                        []
-                    ).find(
-                        item =>
-                            item.id ===
-                            socket.currentCallId
-                    );
-
-
-                if (call) {
-
-                    call.status =
-                        "ended";
-
-                    call.endedAt =
-                        Date.now();
-
-
-                    if (
-                        call.answeredAt
-                    ) {
-
-                        call.duration =
-                            Math.max(
-                                0,
-                                Math.floor(
-                                    (
-                                        call.endedAt -
-                                        call.answeredAt
-                                    ) / 1000
-                                )
-                            );
-
-                    }
-
-                }
-
-
-                await db.write();
-
-
-                if (partner) {
-
-                    partner.currentCallId =
-                        null;
-
-                    partner.emit(
-                        "call-ended"
-                    );
-
-                }
-
-
-                socket.currentCallId =
-                    null;
-
-            }
-        );
-
-
-        // ==================================
-        // DISCONNECT
-        // ==================================
-
-        socket.on(
-            "disconnect",
-            async (reason) => {
-
-                console.log(
-                    "User disconnected:",
-                    socket.user.username,
-                    socket.id,
-                    reason
-                );
-
-
-                // Remove active socket
-                const userKey =
-                    String(
-                        socket.user.id
-                    );
-
-
+            setTimeout(() => {
                 if (
-                    activeUserSockets.get(
-                        userKey
-                    ) === socket
+                    partner.connected &&
+                    !partner.currentRoomId
                 ) {
-
-                    activeUserSockets.delete(
-                        userKey
-                    );
-
+                    findPartner(partner);
                 }
+            }, 100);
+        }
 
-
-                // Remove waiting user
-                if (
-                    waitingUser &&
-                    waitingUser.id ===
-                        socket.id
-                ) {
-
-                    waitingUser =
-                        null;
-
-                }
-
-
-                // End call
-                if (
-                    socket.currentCallId
-                ) {
-
-                    const call =
-                        (
-                            db.data.calls ||
-                            []
-                        ).find(
-                            item =>
-                                item.id ===
-                                socket.currentCallId
-                        );
-
-
-                    if (call) {
-
-                        call.status =
-                            "disconnected";
-
-                        call.endedAt =
-                            Date.now();
-
-
-                        if (
-                            call.answeredAt
-                        ) {
-
-                            call.duration =
-                                Math.max(
-                                    0,
-                                    Math.floor(
-                                        (
-                                            call.endedAt -
-                                            call.answeredAt
-                                        ) / 1000
-                                    )
-                                );
-
-                        }
-
-                    }
-
-
-                    socket.currentCallId =
-                        null;
-
-                }
-
-
-                const room =
-                    getUserRoom(
-                        socket
-                    );
-
-
-                if (!room) {
-
-                    await db.write();
-
-                    return;
-
-                }
-
-
-                const partner =
-                    getPartnerSocket(
-                        socket
-                    );
-
-
-                room.active =
-                    false;
-
-                room.videoCallActive =
-                    false;
-
-                room.endedAt =
-                    Date.now();
-
-
-                socket.currentRoomId =
-                    null;
-
-                socket.partnerSocketId =
-                    null;
-
-                socket.partnerUserId =
-                    null;
-
-
-                if (partner) {
-
-                    partner.leave(
-                        room.id
-                    );
-
-                    partner.currentRoomId =
-                        null;
-
-                    partner.partnerSocketId =
-                        null;
-
-                    partner.partnerUserId =
-                        null;
-
-                    partner.currentCallId =
-                        null;
-
-
-                    partner.emit(
-                        "partner-left",
-                        {
-                            reason:
-                                "disconnected"
-                        }
-                    );
-
-                }
-
-
-                await db.write();
-
-
-                // Find a new partner
-                if (
-                    partner &&
-                    partner.connected
-                ) {
-
-                    await findPartner(
-                        partner
-                    );
-
-                }
-
-            }
-        );
-
-    }
-);
-
-
-// ==========================================
-// START SERVER
-// ==========================================
+        socket.currentRoomId = null;
+        socket.partnerSocketId = null;
+        socket.partnerUserId = null;
+    });
+});
 
 async function startServer() {
-
     try {
-
         await initDatabase();
-
 
         server.listen(
             PORT,
             "0.0.0.0",
             () => {
-
-                console.log("");
                 console.log(
-                    "================================"
+                    "=========================================="
                 );
                 console.log(
-                    " NICHE Connect Server"
+                    "NICHE Connect server started"
                 );
                 console.log(
-                    "================================"
+                    "HTTPS: https://0.0.0.0:" + PORT
                 );
                 console.log(
-                    `Server running on port ${PORT}`
+                    "Local: https://127.0.0.1:" + PORT
                 );
                 console.log(
-                    `Local: http://localhost:${PORT}`
+                    "=========================================="
                 );
-                console.log(
-                    "================================"
-                );
-
             }
         );
-
-
     } catch (error) {
-
         console.error(
             "Failed to start server:",
             error
         );
 
         process.exit(1);
-
     }
-
 }
-
 
 startServer();
